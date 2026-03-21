@@ -1,25 +1,8 @@
 <div align="center">
 
-<img src="./frontend/public/miroshark-banner.jpg" alt="MiroShark Logo" width="75%"/>
+<img src="./miroshark-banner.jpg" alt="MiroShark Logo" width="75%"/>
 
-<a href="https://trendshift.io/repositories/16144" target="_blank"><img src="https://trendshift.io/api/badge/repositories/16144" alt="aaronjmars%2FMiroShark | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
-
-A Simple and Universal Swarm Intelligence Engine, Predicting Anything
-</br>
 <em>A Simple and Universal Swarm Intelligence Engine, Predicting Anything</em>
-
-<a href="https://www.shanda.com/" target="_blank"><img src="./static/image/shanda_logo.png" alt="aaronjmars%2MiroShark | Shanda" height="40"/></a>
-
-[![GitHub Stars](https://img.shields.io/github/stars/aaronjmars/MiroShark?style=flat-square&color=DAA520)](https://github.com/aaronjmars/MiroShark/stargazers)
-[![GitHub Watchers](https://img.shields.io/github/watchers/aaronjmars/MiroShark?style=flat-square)](https://github.com/aaronjmars/MiroShark/watchers)
-[![GitHub Forks](https://img.shields.io/github/forks/aaronjmars/MiroShark?style=flat-square)](https://github.com/aaronjmars/MiroShark/network)
-[![Docker](https://img.shields.io/badge/Docker-Build-2496ED?style=flat-square&logo=docker&logoColor=white)](https://hub.docker.com/)
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/aaronjmars/MiroShark)
-
-[![Discord](https://img.shields.io/badge/Discord-Join-5865F2?style=flat-square&logo=discord&logoColor=white)](http://discord.gg/ePf5aPaHnA)
-[![X](https://img.shields.io/badge/X-Follow-000000?style=flat-square&logo=x&logoColor=white)](https://x.com/miroshark_ai)
-[![Instagram](https://img.shields.io/badge/Instagram-Follow-E4405F?style=flat-square&logo=instagram&logoColor=white)](https://www.instagram.com/miroshark_ai/)
-
 
 </div>
 
@@ -39,48 +22,13 @@ MiroShark is dedicated to building a swarm intelligence mirror that maps reality
 
 From serious prediction to entertaining simulation, we make every "what if" visible, making it possible to predict anything.
 
-## 🌐 Online Demo
-
-Welcome to visit our online demo environment and experience a prediction simulation of trending public opinion events we've prepared for you: [miroshark-live-demo](https://aaronjmars.github.io/miroshark-demo/)
-
-## 📸 System Screenshots
+## 📸 Screenshots
 
 <div align="center">
-<table>
-<tr>
-<td><img src="./static/image/Screenshot/screenshot_1.png" alt="Screenshot 1" width="100%"/></td>
-<td><img src="./static/image/Screenshot/screenshot_2.png" alt="Screenshot 2" width="100%"/></td>
-</tr>
-<tr>
-<td><img src="./static/image/Screenshot/screenshot_3.png" alt="Screenshot 3" width="100%"/></td>
-<td><img src="./static/image/Screenshot/screenshot_4.png" alt="Screenshot 4" width="100%"/></td>
-</tr>
-<tr>
-<td><img src="./static/image/Screenshot/screenshot_5.png" alt="Screenshot 5" width="100%"/></td>
-<td><img src="./static/image/Screenshot/screenshot_6.png" alt="Screenshot 6" width="100%"/></td>
-</tr>
-</table>
+<img src="./miroshark-nobg.png" alt="MiroShark UI" width="80%"/>
+<br/><br/>
+<img src="./screen3.png" alt="MiroShark Simulation" width="80%"/>
 </div>
-
-## 🎬 Demo Videos
-
-### 1. Wuhan University Public Opinion Simulation & MiroShark Project Walkthrough
-
-<div align="center">
-<a href="https://www.bilibili.com/video/BV1VYBsBHEMY/" target="_blank"><img src="./static/image/wuhan_university_demo_cover.png" alt="MiroShark Demo Video" width="75%"/></a>
-
-Click the image to watch the full demo video of a prediction using the "Wuhan University Public Opinion Report" generated with BettaFish
-</div>
-
-### 2. Predicting the Lost Ending of "Dream of the Red Chamber"
-
-<div align="center">
-<a href="https://www.bilibili.com/video/BV1cPk3BBExq" target="_blank"><img src="./static/image/dream_of_red_chamber_cover.jpg" alt="MiroShark Demo Video" width="75%"/></a>
-
-Click the image to watch MiroShark deeply predict the lost ending based on hundreds of thousands of words from the first 80 chapters of "Dream of the Red Chamber"
-</div>
-
-> **Financial prediction simulations**, **current affairs prediction simulations**, and more examples are being updated continuously...
 
 ## 🔄 Workflow
 
@@ -175,30 +123,8 @@ By default, it reads the `.env` file from the root directory and maps ports `300
 
 > Accelerated mirror addresses are provided as comments in `docker-compose.yml` and can be substituted as needed
 
-## 📬 Contact Us
-
-<div align="center">
-<img src="./static/image/qq_group.png" alt="QQ Group" width="60%"/>
-</div>
-
-&nbsp;
-
-The MiroShark team is actively recruiting full-time and intern positions. If you are interested in multi-agent applications, feel free to send your resume to: **miroshark@shanda.com**
-
 ## 📄 Acknowledgments
-
-**MiroShark has received strategic support and incubation from Shanda Group!**
 
 Built on top of [MiroFish](https://github.com/666ghj/MiroFish) — thanks to the original authors for the foundation.
 
 MiroShark's simulation engine is powered by **[OASIS](https://github.com/camel-ai/oasis)**. We sincerely thank the CAMEL-AI team for their open-source contributions!
-
-## 📈 Project Statistics
-
-<a href="https://www.star-history.com/#aaronjmars/MiroShark&type=date&legend=top-left">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=aaronjmars/MiroShark&type=date&theme=dark&legend=top-left" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=aaronjmars/MiroShark&type=date&legend=top-left" />
-   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=aaronjmars/MiroShark&type=date&legend=top-left" />
- </picture>
-</a>
