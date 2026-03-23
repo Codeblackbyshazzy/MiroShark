@@ -140,6 +140,49 @@ Open `http://localhost:3000`.
 
 ## Configuration
 
+### Recommended Models (OpenRouter)
+
+**Primary simulation LLM — best all-round pick**
+
+**Gemini 3 Flash Preview** (`google/gemini-3-flash-preview`)
+- 1M context — zero risk of crashing on any simulation size
+- Quality score 87 — strong reasoning for agent personas
+- $0.50 in / $3.00 out — at 10k calls with ~2k tokens avg, ~$10–15 total
+
+**Budget simulation LLM — max scale / cost control**
+
+**DeepSeek Chat V3** (`deepseek/deepseek-chat`)
+- 164K context — covers most simulations comfortably
+- $0.32 in / $0.89 out — cheapest non-free model with real quality (score 79)
+- Great for 100+ agent simulations where cost is the ceiling
+
+**GPT-5 Nano** (`openai/gpt-5-nano`) as a fallback
+- 400K context, $0.05 in / $0.40 out — almost free at scale
+- Lower quality (51) but fine for simple agent personas or early-stage testing
+
+**High-quality simulation (worth the extra cost)**
+
+**Kimi K2** (`moonshotai/kimi-k2`)
+- 131K context, quality score 89 — nearly Opus-level quality
+- $0.55 in / $2.20 out — remarkably cheap for the capability
+- Best pick if your agents need nuanced reasoning
+
+**Report generation only (not simulation)**
+
+**Claude Opus 4.6** or **GPT-5** — save these for the final report step where you make one high-quality call, not thousands.
+
+**Embeddings** — `openai/text-embedding-3-small` on OpenRouter. Keep `EMBEDDING_DIMENSIONS=768` to match the Neo4j index.
+
+| Situation | Pick |
+|---|---|
+| Default / balanced | Gemini 3 Flash Preview |
+| Cost is critical | DeepSeek Chat V3 |
+| Max agent quality | Kimi K2 |
+| Prototype / testing | GPT-5 Nano |
+| Final report | Claude Opus 4.6 |
+
+### Environment Variables
+
 All settings are in `.env` (copy from `.env.example`):
 
 ```bash
