@@ -72,6 +72,11 @@ class LLMClient:
             api_key=self.api_key,
             base_url=self.base_url,
             timeout=timeout,
+            default_headers={
+                'HTTP-Referer': 'https://github.com/aaronjmars/MiroShark',
+                'X-Title': 'MiroShark',
+                'X-OpenRouter-Categories': 'roleplay',
+            },
         )
 
         # Ollama context window size — prevents prompt truncation.
