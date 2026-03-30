@@ -81,7 +81,12 @@ def get_template(template_id: str):
     simulation_requirement for use in the creation flow.
     """
     try:
-        filepath = os.path.join(TEMPLATES_DIR, f"{template_id}.json")
+        filepath = os.path.realpath(os.path.join(TEMPLATES_DIR, f"{template_id}.json"))
+        if not filepath.startswith(os.path.realpath(TEMPLATES_DIR)):
+            return jsonify({
+                "success": False,
+                "error": "Invalid template ID"
+            }), 400
         if not os.path.exists(filepath):
             return jsonify({
                 "success": False,

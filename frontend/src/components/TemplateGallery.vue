@@ -88,8 +88,8 @@ const iconMap = {
 onMounted(async () => {
   try {
     const res = await listTemplates()
-    if (res.data?.success) {
-      templates.value = res.data.data
+    if (res?.success) {
+      templates.value = res.data
     }
   } catch (e) {
     console.error('Failed to load templates:', e)
@@ -106,8 +106,8 @@ const launchTemplate = async (template) => {
   launchingId.value = template.id
   try {
     const res = await getTemplate(template.id)
-    if (res.data?.success) {
-      const full = res.data.data
+    if (res?.success) {
+      const full = res.data
       setPendingTemplate(
         full.simulation_requirement,
         full.seed_document,
