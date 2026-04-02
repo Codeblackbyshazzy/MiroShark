@@ -20,16 +20,16 @@
 <div align="center">
 <table>
 <tr>
-<td><img src="./docs/images/screen1.png" width="100%"/></td>
-<td><img src="./docs/images/screen2.png" width="100%"/></td>
+<td><img src="./docs/images/1.jpg" width="100%"/></td>
+<td><img src="./docs/images/2.jpg" width="100%"/></td>
 </tr>
 <tr>
-<td><img src="./docs/images/screen3.png" width="100%"/></td>
-<td><img src="./docs/images/screen4.png" width="100%"/></td>
+<td><img src="./docs/images/3.jpg" width="100%"/></td>
+<td><img src="./docs/images/4.jpg" width="100%"/></td>
 </tr>
 <tr>
-<td><img src="./docs/images/screen5.png" width="100%"/></td>
-<td><img src="./docs/images/screen6.png" width="100%"/></td>
+<td><img src="./docs/images/5.jpg" width="100%"/></td>
+<td><img src="./docs/images/6.jpg" width="100%"/></td>
 </tr>
 </table>
 </div>
