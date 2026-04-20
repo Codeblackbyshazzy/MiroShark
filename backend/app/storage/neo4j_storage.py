@@ -21,7 +21,10 @@ from neo4j.exceptions import (
 
 from ..config import Config
 from .graph_storage import GraphStorage
+from .community_builder import CommunityBuilder
+from .contradiction_detector import ContradictionDetector
 from .embedding_service import EmbeddingService
+from .entity_resolver import EntityResolver
 from .ner_extractor import NERExtractor
 from .search_service import SearchService
 from . import neo4j_schema
@@ -53,6 +56,9 @@ class Neo4jStorage(GraphStorage):
         self._embedding = embedding_service or EmbeddingService()
         self._ner = ner_extractor or NERExtractor()
         self._search = SearchService(self._embedding)
+        self._resolver = EntityResolver()
+        self._contradiction = ContradictionDetector()
+        self._community = CommunityBuilder(self._driver, self._embedding)
 
         # Initialize schema (indexes, constraints)
         self._ensure_schema()
@@ -173,8 +179,33 @@ class Neo4jStorage(GraphStorage):
     # Add data (NER → nodes/edges)
     # ----------------------------------------------------------------
 
-    def add_text(self, graph_id: str, text: str) -> str:
-        """Process text: NER/RE → batch embed → create nodes/edges → return episode_id."""
+    def add_text(
+        self,
+        graph_id: str,
+        text: str,
+        valid_at: Optional[str] = None,
+        kind: str = "fact",
+        source_type: str = "document",
+        source_id: Optional[str] = None,
+    ) -> str:
+        """
+        Process text: NER/RE → batch embed → create nodes/edges → return episode_id.
+
+        Args:
+            valid_at: ISO-8601 timestamp of when the extracted facts became true
+                in the world. Defaults to ingestion time (`now`).
+            kind: epistemic label on the produced edges. One of:
+                "fact" (ground-truth world fact, default)
+                "belief" (subjective opinion held by an agent)
+                "observation" (what an agent perceived)
+            source_type: where the edges came from — "document" (default),
+                "agent", or "simulation".
+            source_id: optional identifier for the source (agent UUID, episode
+                UUID, etc.). Defaults to the episode UUID.
+        """
+        if kind not in ("fact", "belief", "observation"):
+            raise ValueError(f"kind must be fact|belief|observation, got {kind!r}")
+
         episode_id = str(uuid.uuid4())
         now = datetime.now(timezone.utc).isoformat()
 
@@ -238,6 +269,17 @@ class Neo4jStorage(GraphStorage):
 
             self._call_with_retry(session.execute_write, _create_episode)
 
+            # Entity resolution — map variant names to canonical existing ones
+            # before MERGE, so duplicates fold into the existing node instead
+            # of creating a parallel one.
+            try:
+                resolution_map = self._resolver.resolve_batch(
+                    session, graph_id, entities, entity_embeddings
+                )
+            except Exception as e:
+                logger.warning(f"[add_text] Entity resolution failed, skipping: {e}")
+                resolution_map = {}
+
             # MERGE entities in batch (UNWIND for bulk upsert)
             entity_uuid_map: Dict[str, str] = {}  # name_lower -> uuid
             entity_batch = []
@@ -250,19 +292,23 @@ class Neo4jStorage(GraphStorage):
                 summary_text = entity_summaries[idx]
                 embedding = entity_embeddings[idx] if idx < len(entity_embeddings) else []
                 e_uuid = str(uuid.uuid4())
+                # If resolver matched this entity to an existing one, use the
+                # canonical name_lower for MERGE so it hits the existing node.
+                canonical_nl = resolution_map.get(idx)
+                name_lower_for_merge = canonical_nl or ename.lower()
                 entity_uuid_map[ename.lower()] = e_uuid
 
                 entity_batch.append({
                     "uuid": e_uuid,
                     "name": ename,
-                    "name_lower": ename.lower(),
+                    "name_lower": name_lower_for_merge,
                     "summary": summary_text,
                     "attrs_json": json.dumps(attrs, ensure_ascii=False),
                     "embedding": embedding,
                 })
 
                 if etype and etype != "Entity":
-                    label_batch.setdefault(etype, []).append(ename.lower())
+                    label_batch.setdefault(etype, []).append(name_lower_for_merge)
 
             if entity_batch:
                 def _merge_entities_batch(tx, _batch=entity_batch):
@@ -293,6 +339,15 @@ class Neo4jStorage(GraphStorage):
                 uuid_pairs = self._call_with_retry(session.execute_write, _merge_entities_batch)
                 for name_lower, actual_uuid in uuid_pairs:
                     entity_uuid_map[name_lower] = actual_uuid
+
+                # Alias: relations extracted by NER reference entities by their
+                # original (un-resolved) names. Map each original_name_lower to
+                # the canonical UUID so relation creation below finds the right
+                # endpoint.
+                for idx, canonical_nl in resolution_map.items():
+                    original_nl = entities[idx]["name"].lower()
+                    if canonical_nl in entity_uuid_map:
+                        entity_uuid_map[original_nl] = entity_uuid_map[canonical_nl]
 
                 # Add type labels in batch (one query per label type)
                 for label, name_lowers in label_batch.items():
@@ -335,7 +390,26 @@ class Neo4jStorage(GraphStorage):
                     "episode_id": episode_id,
                 })
 
+            # Contradiction detection — invalidate existing edges that this
+            # batch supersedes. Runs before the CREATE so the new edges see a
+            # clean "current" view when hybrid search runs.
             if relation_batch:
+                try:
+                    to_invalidate = self._contradiction.detect(
+                        session, graph_id, relation_batch
+                    )
+                    for edge_uuid in to_invalidate:
+                        self.invalidate_edge(edge_uuid, invalidated_at=now)
+                except Exception as e:
+                    logger.warning(f"[add_text] Contradiction detection failed: {e}")
+
+            if relation_batch:
+                # valid_at defaults to now; callers can override via add_text(valid_at=...)
+                # to express round-aware or historical ingestion (e.g., a simulation
+                # fact that became true at round N's wall-clock time).
+                edge_valid_at = valid_at if valid_at is not None else now
+                edge_source_id = source_id if source_id is not None else episode_id
+
                 def _create_relations_batch(tx, _batch=relation_batch):
                     tx.run(
                         """
@@ -351,14 +425,21 @@ class Neo4jStorage(GraphStorage):
                             attributes_json: '{}',
                             episode_ids: [r.episode_id],
                             created_at: $now,
-                            valid_at: null,
+                            valid_at: $valid_at,
                             invalid_at: null,
-                            expired_at: null
+                            expired_at: null,
+                            kind: $kind,
+                            source_type: $source_type,
+                            source_id: $source_id
                         }]->(tgt)
                         """,
                         batch=_batch,
                         gid=graph_id,
                         now=now,
+                        valid_at=edge_valid_at,
+                        kind=kind,
+                        source_type=source_type,
+                        source_id=edge_source_id,
                     )
 
                 self._call_with_retry(session.execute_write, _create_relations_batch)
@@ -499,27 +580,194 @@ class Neo4jStorage(GraphStorage):
         query: str,
         limit: int = 10,
         scope: str = "edges",
+        as_of: Optional[str] = None,
+        include_invalidated: bool = False,
+        kinds: Optional[List[str]] = None,
     ):
         """
         Hybrid search — returns results matching the scope.
 
-        Returns a dict with 'edges' and/or 'nodes' lists
-        (callers like zep_tools will wrap into SearchResult).
+        Args:
+            as_of: ISO-8601 timestamp. If set, returns only edges that were
+                valid at that moment.
+            include_invalidated: If True, returns superseded edges alongside
+                current ones.
+            kinds: optional filter on edge epistemic kind — a list containing
+                any of "fact", "belief", "observation". None = all kinds.
+
+        Returns a dict with 'edges' and/or 'nodes' lists.
         """
+        if kinds is not None:
+            for k in kinds:
+                if k not in ("fact", "belief", "observation"):
+                    raise ValueError(f"Invalid kind: {k!r}")
+
         result = {"edges": [], "nodes": [], "query": query}
 
         with self._driver.session() as session:
             if scope in ("edges", "both"):
                 result["edges"] = self._search.search_edges(
-                    session, graph_id, query, limit
+                    session, graph_id, query, limit,
+                    as_of=as_of, include_invalidated=include_invalidated, kinds=kinds,
                 )
 
             if scope in ("nodes", "both"):
                 result["nodes"] = self._search.search_nodes(
-                    session, graph_id, query, limit
+                    session, graph_id, query, limit,
+                    as_of=as_of, include_invalidated=include_invalidated, kinds=kinds,
                 )
 
         return result
+
+    def invalidate_edge(
+        self,
+        edge_uuid: str,
+        invalidated_at: Optional[str] = None,
+    ) -> bool:
+        """
+        Mark an edge as superseded: sets invalid_at and expired_at to the given
+        timestamp (or now if omitted). Edge is NOT deleted — preserved for
+        historical / audit queries via `search(include_invalidated=True)` or
+        `search(as_of=t)` where t < invalidated_at.
+
+        Returns True if the edge was updated, False if it didn't exist.
+        """
+        ts = invalidated_at or datetime.now(timezone.utc).isoformat()
+
+        def _invalidate(tx):
+            # Directed match to avoid double-returning the same edge.
+            result = tx.run(
+                """
+                MATCH (s)-[r:RELATION {uuid: $uuid}]->(t)
+                WHERE r.invalid_at IS NULL
+                SET r.invalid_at = $ts, r.expired_at = $ts
+                RETURN r.uuid AS uuid
+                """,
+                uuid=edge_uuid, ts=ts,
+            )
+            return result.single() is not None
+
+        with self._driver.session() as session:
+            return bool(self._call_with_retry(session.execute_write, _invalidate))
+
+    # ----------------------------------------------------------------
+    # Community subgraph (zoom-out layer)
+    # ----------------------------------------------------------------
+
+    def build_communities(self, graph_id: str) -> Dict[str, int]:
+        """
+        Leiden-cluster the entity graph, summarize each cluster with an LLM,
+        and replace any existing :Community nodes for this graph.
+
+        Returns {clusters_found, clusters_kept, entities_clustered}.
+        """
+        return self._community.build(graph_id)
+
+    def search_communities(
+        self, graph_id: str, query: str, limit: int = 5,
+    ) -> List[Dict[str, Any]]:
+        """Semantic search over community summaries for this graph."""
+        return self._community.search(graph_id, query, limit=limit)
+
+    def list_communities(self, graph_id: str) -> List[Dict[str, Any]]:
+        """All communities for this graph, largest first."""
+        return self._community.list_all(graph_id)
+
+    def get_community(self, community_uuid: str) -> Optional[Dict[str, Any]]:
+        """Community metadata + list of member entities."""
+        return self._community.get_detail(community_uuid)
+
+    # ----------------------------------------------------------------
+    # Reasoning trace (report-agent decision subgraph)
+    # ----------------------------------------------------------------
+
+    def create_reasoning_recorder(
+        self,
+        report_id: str,
+        graph_id: str,
+        simulation_id: Optional[str],
+        report_title: str,
+    ):
+        """
+        Return a fresh ReasoningTraceRecorder bound to this storage's driver.
+        The recorder buffers per-section steps in memory and flushes on
+        finalize_section().
+        """
+        from .reasoning_trace import ReasoningTraceRecorder
+        return ReasoningTraceRecorder(
+            driver=self._driver,
+            graph_id=graph_id,
+            report_id=report_id,
+            simulation_id=simulation_id,
+            report_title=report_title,
+        )
+
+    def list_reports(self, graph_id: str) -> List[Dict[str, Any]]:
+        """All reports generated for a graph, most recent first."""
+        with self._driver.session() as session:
+            result = session.run(
+                """
+                MATCH (r:Report {graph_id: $gid})
+                OPTIONAL MATCH (r)-[:HAS_SECTION]->(s:ReportSection)
+                WITH r, count(s) AS section_count
+                RETURN r.uuid AS uuid, r.title AS title,
+                       r.simulation_id AS simulation_id,
+                       r.created_at AS created_at,
+                       section_count
+                ORDER BY r.created_at DESC
+                """,
+                gid=graph_id,
+            )
+            return [dict(rec) for rec in result]
+
+    def get_reasoning_trace(self, section_uuid: str) -> Optional[Dict[str, Any]]:
+        """
+        Full trace for one section: metadata + ordered steps.
+        Use list_reports + list_report_sections to navigate to a section UUID.
+        """
+        with self._driver.session() as session:
+            row = session.run(
+                """
+                MATCH (s:ReportSection {uuid: $sid})
+                OPTIONAL MATCH (s)-[:HAS_STEP]->(st:ReasoningStep)
+                WITH s, st ORDER BY st.step_index
+                WITH s, collect({
+                    uuid: st.uuid,
+                    step_index: st.step_index,
+                    kind: st.kind,
+                    content: st.content,
+                    iteration: st.iteration,
+                    tool_name: st.tool_name,
+                    tool_params_json: st.tool_params_json,
+                    timestamp: st.timestamp
+                }) AS steps
+                RETURN s.uuid AS uuid, s.report_id AS report_id,
+                       s.title AS title, s.section_index AS section_index,
+                       s.final_text AS final_text, s.created_at AS created_at,
+                       [st IN steps WHERE st.uuid IS NOT NULL] AS steps
+                """,
+                sid=section_uuid,
+            ).single()
+            if not row or not row["uuid"]:
+                return None
+            return dict(row)
+
+    def list_report_sections(self, report_uuid: str) -> List[Dict[str, Any]]:
+        """All sections of a report in order."""
+        with self._driver.session() as session:
+            result = session.run(
+                """
+                MATCH (:Report {uuid: $rid})-[:HAS_SECTION]->(s:ReportSection)
+                OPTIONAL MATCH (s)-[:HAS_STEP]->(st:ReasoningStep)
+                WITH s, count(st) AS step_count
+                RETURN s.uuid AS uuid, s.title AS title,
+                       s.section_index AS section_index, step_count,
+                       s.created_at AS created_at
+                ORDER BY s.section_index
+                """,
+                rid=report_uuid,
+            )
+            return [dict(rec) for rec in result]
 
     # ----------------------------------------------------------------
     # Graph info

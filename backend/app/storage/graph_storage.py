@@ -95,6 +95,9 @@ class GraphStorage(ABC):
         query: str,
         limit: int = 10,
         scope: str = "edges",
+        as_of: Optional[str] = None,
+        include_invalidated: bool = False,
+        kinds: Optional[List[str]] = None,
     ):
         """
         Hybrid search (vector + keyword) over graph data.

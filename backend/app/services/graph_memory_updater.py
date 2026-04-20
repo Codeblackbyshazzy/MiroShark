@@ -311,6 +311,14 @@ class GraphMemoryUpdater:
     def _send_batch_activities(self, activities: List[AgentActivity], platform: str):
         """
         Send batched activities to the graph by merging them as text and using add_text to trigger NER.
+
+        Batch-level metadata:
+          - kind: "belief" if the batch is entirely expressive actions
+            (CREATE_POST / QUOTE_POST); otherwise "observation".
+          - source_type: always "agent" (these originated from sim agents).
+          - source_id: platform + round, so edges are traceable back to the
+            simulation round that produced them.
+          - valid_at: earliest timestamp in the batch.
         """
         if not activities:
             return
@@ -318,14 +326,43 @@ class GraphMemoryUpdater:
         episode_texts = [activity.to_episode_text() for activity in activities]
         combined_text = "\n".join(episode_texts)
 
+        # Determine epistemic kind at the batch level.
+        expressive_actions = {"CREATE_POST", "QUOTE_POST", "CREATE_COMMENT"}
+        edge_kind = (
+            "belief"
+            if all(a.action_type in expressive_actions for a in activities)
+            else "observation"
+        )
+
+        # Source id: platform + round (when homogeneous) keeps edges queryable
+        # per-simulation-round. Mixed batches fall back to platform only.
+        rounds = {a.round_num for a in activities}
+        source_id = (
+            f"{platform}:round_{next(iter(rounds))}"
+            if len(rounds) == 1
+            else f"{platform}:mixed"
+        )
+
+        valid_at = min(a.timestamp for a in activities)
+
         for attempt in range(self.MAX_RETRIES):
             try:
-                self.storage.add_text(self.graph_id, combined_text)
+                self.storage.add_text(
+                    self.graph_id,
+                    combined_text,
+                    valid_at=valid_at,
+                    kind=edge_kind,
+                    source_type="agent",
+                    source_id=source_id,
+                )
 
                 self._total_sent += 1
                 self._total_items_sent += len(activities)
                 display_name = self._get_platform_display_name(platform)
-                logger.info(f"Successfully batch sent {len(activities)} {display_name} activities to graph {self.graph_id}")
+                logger.info(
+                    f"Successfully batch sent {len(activities)} {display_name} activities "
+                    f"to graph {self.graph_id} (kind={edge_kind}, source_id={source_id})"
+                )
                 logger.debug(f"Batch preview: {combined_text[:200]}...")
                 return
 

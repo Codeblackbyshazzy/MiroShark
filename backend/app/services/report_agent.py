@@ -617,10 +617,10 @@ Contradictions reveal tension points, evolving relationships, or conflicting nar
 - Interpretation guidance"""
 
 TOOL_DESC_SIMULATION_FEED = """\
-[Simulation Feed - MOST IMPORTANT TOOL - Read Actual Simulation Output]
-Reads the actual posts, comments, and trades that agents produced during the simulation.
-THIS IS YOUR PRIMARY DATA SOURCE. The simulation feed contains what agents actually said
-and did on Twitter, Reddit, and Polymarket. Use this BEFORE graph search tools.
+[Simulation Feed - Read Actual Simulation Output]
+Returns the raw posts, comments, and trades that agents produced during the
+simulation — Twitter, Reddit, and Polymarket combined. Good for quoting
+specific agent behavior verbatim.
 
 [Parameters]
 - platform: "twitter", "reddit", "polymarket", or "all" (default "all")
@@ -633,12 +633,15 @@ and did on Twitter, Reddit, and Polymarket. Use this BEFORE graph search tools.
 - Market price movements
 - Action type breakdown per platform
 
-[Use Cases]
-- Quote what specific agents said on Twitter/Reddit
-- Analyze how market prices moved and who drove the movement
-- Find the most viral/liked posts
-- Compare what agents said on social media vs how they traded
-- Track how discourse evolved across rounds"""
+[When to use]
+- You need a direct quote from an agent on a specific topic
+- You want to see what happened in a specific round or on a specific platform
+- You're looking for concrete behavioral evidence to support a claim
+
+[Complementary tools]
+- browse_clusters: when you need orientation over the whole graph first
+- insight_forge: for deeper analysis of patterns across the graph
+- interview_agents: for in-depth follow-up questions to specific agents"""
 
 TOOL_DESC_MARKET_STATE = """\
 [Market State - Polymarket Final State]
@@ -650,6 +653,33 @@ and trader portfolios with P&L.
 - Complete trade history (who bought/sold, prices, amounts)
 - Trader portfolios with cash, positions, and profit/loss
 - Price movement from initial to final"""
+
+TOOL_DESC_BROWSE_CLUSTERS = """\
+[Browse Clusters - Zoom-Out Over the Graph]
+Returns LLM-summarized community clusters — the major themes of the knowledge
+graph. Each cluster is a group of tightly-connected entities with a short
+title and 1-2 sentence description.
+
+USE THIS FIRST when you need orientation. One call surfaces the 5-8 themes
+the graph is actually about; you can then drill into specific facts with
+search_graph / panorama_search / quick_search using a query informed by the
+cluster titles.
+
+[Parameters]
+- query: Optional semantic query to find clusters relevant to a specific
+  topic. Leave empty to list the largest clusters.
+- limit: Optional cap on clusters returned (default 8).
+
+[Return Content]
+- Cluster titles + summaries + entity counts
+- Semantic relevance scores (when a query is provided)
+- Cluster UUIDs (for future drill-down hooks)
+
+[When to use]
+- At the start of a report section to orient yourself
+- When the simulation has many entities (100+) and you need to pick what to
+  focus on
+- To check whether a topic is actually covered before searching for specifics"""
 
 # ── Outline Planning Prompt ──
 
@@ -759,12 +789,13 @@ Do NOT overclaim — this is scenario exploration, not prophecy
    - You are analyzing the simulation from a "God's eye view"
    - All claims must be grounded in Agent behavior from the simulation
    - Each section must call tools at least 3 times (max 6) to gather evidence
-   - **START with simulation_feed** — this is your PRIMARY data source. It contains
-     the actual posts, comments, and trades that agents produced. Read it first,
-     then use other tools to dig deeper.
-   - Use market_state to get Polymarket price movements, trade history, and P&L
-   - Use insight_forge for background context from the knowledge graph
-   - Use analyze_trajectory for belief evolution data
+   - Pick the right tool for the question at hand:
+     • browse_clusters — zoom out first if you need orientation over the graph
+     • simulation_feed — for direct quotes of agent posts/comments/trades
+     • market_state — for Polymarket prices, trade history, and P&L
+     • insight_forge — for cross-cutting patterns and deeper graph analysis
+     • analyze_trajectory — for belief evolution over rounds
+     • interview_agents — for targeted follow-up questions to specific agents
    - QUOTE actual agent posts/comments — the report should cite what agents SAID
 
 2. [Must Support Claims with Specific Evidence]
@@ -1050,6 +1081,8 @@ class ReportAgent:
         self.report_logger: Optional[ReportLogger] = None
         # Console logger (initialized in generate_report)
         self.console_logger: Optional[ReportConsoleLogger] = None
+        # Reasoning-trace recorder (initialized in generate_report when enabled)
+        self._trace_recorder = None
 
         logger.info(f"ReportAgent initialization complete: graph_id={graph_id}, simulation_id={simulation_id}")
     
@@ -1130,6 +1163,14 @@ class ReportAgent:
                 "name": "market_state",
                 "description": TOOL_DESC_MARKET_STATE,
                 "parameters": {}
+            },
+            "browse_clusters": {
+                "name": "browse_clusters",
+                "description": TOOL_DESC_BROWSE_CLUSTERS,
+                "parameters": {
+                    "query": "Optional semantic query to find clusters relevant to a topic. Leave empty to list the largest clusters.",
+                    "limit": "Optional cap on clusters returned (default 8)"
+                }
             }
         }
     
@@ -1241,6 +1282,22 @@ class ReportAgent:
 
             elif tool_name == "simulation_feed":
                 return self._execute_simulation_feed(parameters)
+
+            elif tool_name == "browse_clusters":
+                # Zoom-out — LLM-summarized community clusters over the graph.
+                # Auto-builds on first use if no clusters exist yet.
+                query = parameters.get("query", "") or ""
+                limit = parameters.get("limit", 8)
+                if isinstance(limit, str):
+                    try:
+                        limit = int(limit)
+                    except ValueError:
+                        limit = 8
+                return self.graph_tools.browse_clusters(
+                    graph_id=self.graph_id,
+                    query=query,
+                    limit=limit,
+                )
 
             elif tool_name == "market_state":
                 return self._execute_market_state()
@@ -1843,10 +1900,17 @@ class ReportAgent:
             Section content (Markdown format)
         """
         logger.info(f"ReACT generating section: {section.title}")
-        
+
         # Record section start log
         if self.report_logger:
             self.report_logger.log_section_start(section.title, section_index)
+
+        # Begin a new buffer on the reasoning-trace recorder
+        if self._trace_recorder is not None:
+            try:
+                self._trace_recorder.start_section(section.title, section_index)
+            except Exception as e:
+                logger.warning(f"reasoning-trace start_section failed: {e}")
         
         system_prompt = SECTION_SYSTEM_PROMPT_TEMPLATE.format(
             report_title=outline.title,
@@ -1885,7 +1949,7 @@ class ReportAgent:
         min_tool_calls = 2  # Minimum tool call count
         conflict_retries = 0  # Consecutive conflict count when tool call and Final Answer appear simultaneously
         used_tools = set()  # Track names of tools already called
-        all_tools = {"insight_forge", "panorama_search", "quick_search", "interview_agents"}
+        all_tools = {"insight_forge", "panorama_search", "quick_search", "interview_agents", "browse_clusters"}
 
         # Report context, used for InsightForge sub-question generation
         report_context = f"Section title: {section.title}\nSimulation requirement: {self.simulation_requirement}"
@@ -1970,6 +2034,13 @@ class ReportAgent:
                     has_final_answer=has_final_answer
                 )
 
+            # Record the agent's thought in the reasoning trace
+            if self._trace_recorder is not None and not has_final_answer:
+                try:
+                    self._trace_recorder.record_thought(iteration + 1, response)
+                except Exception as e:
+                    logger.debug(f"reasoning-trace record_thought failed: {e}")
+
             # ── Case 1: LLM output Final Answer ──
             if has_final_answer:
                 # Tool call count insufficient, reject and require more tool calls
@@ -1998,6 +2069,11 @@ class ReportAgent:
                         content=final_answer,
                         tool_calls_count=tool_calls_count
                     )
+                if self._trace_recorder is not None:
+                    try:
+                        self._trace_recorder.finalize_section(final_answer)
+                    except Exception as e:
+                        logger.debug(f"reasoning-trace finalize_section failed: {e}")
                 return final_answer
 
             # ── Case 2: LLM attempted to call tools ──
@@ -2028,6 +2104,17 @@ class ReportAgent:
                         iteration=iteration + 1
                     )
 
+                # Persist the tool call into the reasoning trace
+                if self._trace_recorder is not None:
+                    try:
+                        self._trace_recorder.record_tool_call(
+                            iteration + 1,
+                            call["name"],
+                            call.get("parameters", {}),
+                        )
+                    except Exception as e:
+                        logger.debug(f"reasoning-trace record_tool_call failed: {e}")
+
                 result = self._execute_tool(
                     call["name"],
                     call.get("parameters", {}),
@@ -2042,6 +2129,13 @@ class ReportAgent:
                         result=result,
                         iteration=iteration + 1
                     )
+
+                # Persist the observation (tool output) into the reasoning trace
+                if self._trace_recorder is not None:
+                    try:
+                        self._trace_recorder.record_observation(iteration + 1, result)
+                    except Exception as e:
+                        logger.debug(f"reasoning-trace record_observation failed: {e}")
 
                 tool_calls_count += 1
                 used_tools.add(call['name'])
@@ -2096,6 +2190,11 @@ class ReportAgent:
                     content=final_answer,
                     tool_calls_count=tool_calls_count
                 )
+            if self._trace_recorder is not None:
+                try:
+                    self._trace_recorder.finalize_section(final_answer)
+                except Exception as e:
+                    logger.debug(f"reasoning-trace finalize_section failed: {e}")
             return final_answer
         
         # Reached maximum iterations, force content generation
@@ -2125,9 +2224,13 @@ class ReportAgent:
                 content=final_answer,
                 tool_calls_count=tool_calls_count
             )
-        
+        if self._trace_recorder is not None:
+            try:
+                self._trace_recorder.finalize_section(final_answer)
+            except Exception as e:
+                logger.debug(f"reasoning-trace finalize_section failed: {e}")
         return final_answer
-    
+
     def _generate_synthesis(
         self,
         generated_sections: List[str],
@@ -2246,6 +2349,22 @@ Write in the same analytical style as the report. Use **bold** for emphasis. Do 
             
             # Initialize console logger (console_log.txt)
             self.console_logger = ReportConsoleLogger(report_id)
+
+            # Initialize reasoning-trace recorder (persists agent decisions
+            # to Neo4j as a :Report subgraph for later querying).
+            if Config.REASONING_TRACE_ENABLED:
+                try:
+                    storage = getattr(self.graph_tools, "storage", None)
+                    if storage and hasattr(storage, "create_reasoning_recorder"):
+                        self._trace_recorder = storage.create_reasoning_recorder(
+                            report_id=report_id,
+                            graph_id=self.graph_id,
+                            simulation_id=self.simulation_id,
+                            report_title=f"Simulation {self.simulation_id}",
+                        )
+                except Exception as e:
+                    logger.warning(f"Failed to init reasoning-trace recorder: {e}")
+                    self._trace_recorder = None
             
             ReportManager.update_progress(
                 report_id, "pending", 0, "Initializing report...",

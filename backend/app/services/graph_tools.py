@@ -16,6 +16,7 @@ from typing import Dict, Any, List, Optional
 from dataclasses import dataclass, field
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+from ..config import Config
 from ..utils.logger import get_logger
 from ..utils.llm_client import LLMClient, create_llm_client, create_smart_llm_client
 from ..storage import GraphStorage
@@ -416,6 +417,79 @@ class GraphToolsService:
         return self._fast_llm_client
 
     # ========== Basic Tools ==========
+
+    def browse_clusters(
+        self,
+        graph_id: str,
+        query: str = "",
+        limit: int = 8,
+    ) -> str:
+        """
+        "Zoom out" tool — return LLM-summarized community clusters over the graph.
+
+        Behaviour:
+          - If no communities exist yet, auto-builds them once (first call pays
+            the ~5s Leiden+summarization cost; subsequent calls are fast).
+          - With `query`: semantic search over cluster summaries.
+          - Without `query`: lists the largest clusters in the graph.
+
+        The goal is for the report agent to get its bearings before drilling
+        into individual facts — one call surfaces the 5-8 themes the graph
+        is actually about.
+        """
+        logger.info(f"browse_clusters: graph_id={graph_id}, query={query[:40]!r}, limit={limit}")
+
+        existing = self.storage.list_communities(graph_id)
+        if not existing:
+            logger.info(f"No communities for {graph_id} — auto-building")
+            try:
+                stats = self.storage.build_communities(graph_id)
+                logger.info(f"Auto-build stats: {stats}")
+                existing = self.storage.list_communities(graph_id)
+            except Exception as e:
+                logger.warning(f"Community auto-build failed: {e}")
+                return "⚠️ No community clusters available and auto-build failed. Skip this tool for now."
+
+        if not existing:
+            return (
+                "No clusters could be formed — the graph is too sparse or has fewer "
+                f"than {Config.COMMUNITY_MIN_SIZE} entities per potential cluster. "
+                "Use search_graph or panorama_search instead."
+            )
+
+        # Query-guided mode: semantic search
+        if query and query.strip():
+            results = self.storage.search_communities(graph_id, query.strip(), limit=limit)
+            if not results:
+                return f"No clusters found matching {query!r}. Try a broader query or call without a query to list all clusters."
+            return self._format_clusters(results, header=f"Top {len(results)} clusters relevant to {query!r}:")
+
+        # Browse mode: return largest clusters
+        top = existing[:limit]
+        return self._format_clusters(top, header=f"Graph contains {len(existing)} clusters (showing top {len(top)} by size):")
+
+    @staticmethod
+    def _format_clusters(clusters: List[Dict[str, Any]], header: str = "") -> str:
+        """Render a cluster list for the agent to read."""
+        lines = []
+        if header:
+            lines.append(header)
+            lines.append("")
+        for i, c in enumerate(clusters, start=1):
+            title = c.get("title", "") or "(untitled)"
+            summary = (c.get("summary") or "").strip()
+            member_count = c.get("member_count", 0)
+            score_part = f" · relevance {c['score']:.2f}" if "score" in c else ""
+            lines.append(f"{i}. {title}  [{member_count} entities{score_part}]")
+            if summary:
+                lines.append(f"   {summary}")
+            lines.append(f"   uuid: {c.get('uuid', '')}")
+            lines.append("")
+        lines.append(
+            "Tip: use search_graph or quick_search with a query focused on one "
+            "of these cluster themes to drill into specific facts."
+        )
+        return "\n".join(lines)
 
     def search_graph(
         self,

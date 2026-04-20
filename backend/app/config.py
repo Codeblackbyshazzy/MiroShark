@@ -57,7 +57,53 @@ class Config:
     EMBEDDING_BASE_URL = os.environ.get('EMBEDDING_BASE_URL', 'http://localhost:11434')
     EMBEDDING_API_KEY = os.environ.get('EMBEDDING_API_KEY', '')
     EMBEDDING_DIMENSIONS = int(os.environ.get('EMBEDDING_DIMENSIONS', '768'))
-    
+
+    # Reranker configuration — cross-encoder reranking over hybrid search results.
+    # Default: BAAI/bge-reranker-v2-m3 (multilingual, ~568M params). Downloaded on first
+    # use via sentence-transformers. Disable by setting RERANKER_ENABLED=false.
+    RERANKER_ENABLED = os.environ.get('RERANKER_ENABLED', 'true').lower() == 'true'
+    RERANKER_MODEL = os.environ.get('RERANKER_MODEL', 'BAAI/bge-reranker-v2-m3')
+    # Number of candidates to pull from hybrid fusion before reranking.
+    # Must be >= final limit. Larger = better recall before rerank, slower inference.
+    RERANKER_CANDIDATES = int(os.environ.get('RERANKER_CANDIDATES', '30'))
+
+    # Graph-traversal retrieval (Zep/Graphiti-style BFS from seed entities).
+    # A third retrieval strategy alongside vector + BM25 — catches multi-hop
+    # connections where the relevant fact isn't semantically close to the query
+    # but is graph-adjacent to a matched entity.
+    GRAPH_SEARCH_ENABLED = os.environ.get('GRAPH_SEARCH_ENABLED', 'true').lower() == 'true'
+    GRAPH_SEARCH_HOPS = int(os.environ.get('GRAPH_SEARCH_HOPS', '1'))  # 1 or 2
+    GRAPH_SEARCH_SEEDS = int(os.environ.get('GRAPH_SEARCH_SEEDS', '5'))  # seed entities per query
+
+    # Entity resolution — Graphiti-style dedup at ingestion time.
+    # Fuzzy name + vector similarity find candidates; LLM adjudicates ambiguous
+    # ones. Prevents duplicate nodes like "NeuralCoin" / "Neural Coin" / "NC".
+    ENTITY_RESOLUTION_ENABLED = os.environ.get('ENTITY_RESOLUTION_ENABLED', 'true').lower() == 'true'
+    # Whether to invoke the LLM for ambiguous matches (cheap: one batched call
+    # per chunk). Set false to skip LLM and rely on auto-merge threshold alone.
+    ENTITY_RESOLUTION_USE_LLM = os.environ.get('ENTITY_RESOLUTION_USE_LLM', 'true').lower() == 'true'
+
+    # Automatic contradiction detection — when a new relation is ingested
+    # between the same endpoint pair as an existing one, an LLM judges whether
+    # the new fact supersedes the old. Contradicted edges are invalidated
+    # (not deleted) so the historical record is preserved.
+    CONTRADICTION_DETECTION_ENABLED = os.environ.get(
+        'CONTRADICTION_DETECTION_ENABLED', 'true'
+    ).lower() == 'true'
+
+    # Community / cluster subgraph (Graphiti tier 3). "Zoom out" layer for the
+    # report agent — Leiden clusters entities, LLM writes a title + summary
+    # per cluster, stored as :Community nodes with MEMBER_OF edges.
+    COMMUNITY_MIN_SIZE = int(os.environ.get('COMMUNITY_MIN_SIZE', '3'))    # drop tiny clusters
+    COMMUNITY_MAX_COUNT = int(os.environ.get('COMMUNITY_MAX_COUNT', '30')) # cap per rebuild
+
+    # Reasoning-trace persistence — store the report agent's ReACT loop as
+    # a traversable subgraph (:Report → :ReportSection → :ReasoningStep) so
+    # reports become re-queryable and reasoning patterns are mineable.
+    REASONING_TRACE_ENABLED = os.environ.get(
+        'REASONING_TRACE_ENABLED', 'true'
+    ).lower() == 'true'
+
     # File upload configuration
     MAX_CONTENT_LENGTH = 50 * 1024 * 1024  # 50MB
     UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), '../uploads')
