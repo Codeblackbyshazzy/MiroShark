@@ -36,11 +36,13 @@
 
 ## What it does
 
-- Extracts entities from your document into a Neo4j knowledge graph
-- Generates hundreds of grounded personas (with auto web research for public figures)
-- Simulates Twitter, Reddit and a Polymarket prediction market in parallel, hour by hour
-- Writes analytical reports citing what agents actually said and how markets moved
-- Lets you chat with any agent, inject breaking news live, or branch "what if" timelines
+You bring a scenario. MiroShark builds the world around it.
+
+Hundreds of grounded agents. Twitter, Reddit, and a prediction market. Hour by hour.
+
+Chat with any of them. Drop breaking news mid-run. Fork the timeline.
+
+Get a report on what happened, citing actual posts and trades.
 
 ## Quick start
 
