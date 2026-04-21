@@ -162,6 +162,35 @@ from cross_platform_digest import CrossPlatformLog, inject_cross_platform_contex
 from belief_integration import BeliefTracker
 from wonderwall.social_agent.belief_state import inject_belief_context
 from director_events import consume_pending_events, inject_director_event_context
+from counterfactual_loader import load_counterfactual
+from agent_guidelines import inject_posting_rules_into_graph
+
+# Per-round hard timeout (seconds). Bounded so a hung LLM call can't freeze
+# the whole run forever. Override via env for slow backends.
+_ROUND_TIMEOUT_SECONDS = int(os.environ.get('MIROSHARK_ROUND_TIMEOUT', '600'))
+
+
+async def _safe_env_step(env, actions, round_num: int, log_info) -> bool:
+    """Run env.step(actions) with timeout + exception isolation.
+
+    Returns True on success, False on timeout or exception. A False return
+    means the round yielded no actions; callers should skip post-round
+    processing and continue to the next round rather than crashing the run.
+    """
+    try:
+        await asyncio.wait_for(
+            env.step(actions), timeout=_ROUND_TIMEOUT_SECONDS
+        )
+        return True
+    except asyncio.TimeoutError:
+        log_info(
+            f"Round {round_num + 1} env.step timed out after "
+            f"{_ROUND_TIMEOUT_SECONDS}s — skipping round"
+        )
+        return False
+    except Exception as exc:  # noqa: BLE001 — runner must survive agent failures
+        log_info(f"Round {round_num + 1} env.step error: {exc!r} — skipping round")
+        return False
 from market_media_bridge import (
     MarketMediaBridge,
     inject_market_context,
@@ -1302,6 +1331,12 @@ async def run_twitter_simulation(
     await result.env.reset()
     log_info("Environment started" + (f" (resuming from round {start_round})" if is_resume else ""))
 
+    # Universal agent guidelines (e.g. "no hashtags") — inject once; system
+    # messages persist for the life of each agent.
+    _n_rules = inject_posting_rules_into_graph(result.agent_graph)
+    if _n_rules:
+        log_info(f"Posting rules injected into {_n_rules} agents")
+
     if action_logger:
         action_logger.log_simulation_start(config)
 
@@ -1370,6 +1405,14 @@ async def run_twitter_simulation(
 
     start_time = datetime.now()
 
+    # Counterfactual branch spec (fires once at trigger_round when present)
+    cf_spec = load_counterfactual(simulation_dir)
+    if cf_spec:
+        log_info(
+            f"Counterfactual branch active: will fire at round "
+            f"{cf_spec.get('trigger_round')} — {cf_spec.get('label', 'unlabeled')}"
+        )
+
     if start_round > 0:
         log_info(f"Resuming from round {start_round} (skipping rounds 0-{start_round - 1})")
 
@@ -1432,23 +1475,47 @@ async def run_twitter_simulation(
 
         # Director Mode: inject breaking events into agent context
         director_events = consume_pending_events(simulation_dir, round_num + 1)
-        if director_events:
-            combined_text = " | ".join(e["event_text"] for e in director_events)
+        event_texts = [e["event_text"] for e in director_events] if director_events else []
+        # Counterfactual: fire exactly once, at the trigger round
+        if cf_spec and round_num == int(cf_spec.get("trigger_round", -1)):
+            label = cf_spec.get("label") or "counterfactual event"
+            event_texts.append(
+                f"[COUNTERFACTUAL] {label}: {cf_spec['injection_text'].strip()}"
+            )
+            log_info(f"Counterfactual fired at round {round_num + 1}: {label}")
+        if event_texts:
+            combined_text = " | ".join(event_texts)
             for _, agent in active_agents:
                 inject_director_event_context(agent, combined_text)
-            log_info(f"Director Mode: injected {len(director_events)} event(s) at round {round_num + 1}")
+            if director_events:
+                log_info(f"Director Mode: injected {len(director_events)} event(s) at round {round_num + 1}")
 
         _round_t0 = datetime.now()
         actions = {agent: LLMAction() for _, agent in active_agents}
-        await result.env.step(actions)
+        if not await _safe_env_step(result.env, actions, round_num, log_info):
+            if action_logger:
+                action_logger.log_round_end(round_num + 1, 0)
+            write_simulation_event(simulation_dir, 'round_boundary', {
+                'boundary': 'end', 'actions_count': 0,
+                'elapsed_ms': int((datetime.now() - _round_t0).total_seconds() * 1000),
+                'error': 'step_failed',
+            }, simulation_id=_sim_id, round_num=round_num + 1, platform='twitter')
+            continue
 
         # Fetch actually executed actions from database and log them
-        actual_actions, last_rowid = fetch_new_actions_from_db(
-            db_path, last_rowid, agent_names
-        )
+        try:
+            actual_actions, last_rowid = fetch_new_actions_from_db(
+                db_path, last_rowid, agent_names
+            )
+        except Exception as exc:  # noqa: BLE001
+            log_info(f"Round {round_num + 1} fetch_actions failed: {exc!r}")
+            actual_actions = []
 
         # Update beliefs and inject context for next round
-        belief_tracker.after_round(db_path, result.env, active_agents, round_num, actual_actions)
+        try:
+            belief_tracker.after_round(db_path, result.env, active_agents, round_num, actual_actions)
+        except Exception as exc:  # noqa: BLE001
+            log_info(f"Round {round_num + 1} belief update failed: {exc!r}")
 
         # Publish sentiment to bridge for Polymarket agents to see
         if market_media_bridge:
@@ -1572,6 +1639,12 @@ async def run_reddit_simulation(
     await result.env.reset()
     log_info("Environment started" + (f" (resuming from round {start_round})" if is_resume else ""))
 
+    # Universal agent guidelines (e.g. "no hashtags") — inject once; system
+    # messages persist for the life of each agent.
+    _n_rules = inject_posting_rules_into_graph(result.agent_graph)
+    if _n_rules:
+        log_info(f"Posting rules injected into {_n_rules} agents")
+
     if action_logger:
         action_logger.log_simulation_start(config)
 
@@ -1648,6 +1721,14 @@ async def run_reddit_simulation(
 
     start_time = datetime.now()
 
+    # Counterfactual branch spec (fires once at trigger_round when present)
+    cf_spec = load_counterfactual(simulation_dir)
+    if cf_spec:
+        log_info(
+            f"Counterfactual branch active: will fire at round "
+            f"{cf_spec.get('trigger_round')} — {cf_spec.get('label', 'unlabeled')}"
+        )
+
     if start_round > 0:
         log_info(f"Resuming from round {start_round} (skipping rounds 0-{start_round - 1})")
 
@@ -1701,22 +1782,41 @@ async def run_reddit_simulation(
 
         # Director Mode: inject breaking events into agent context
         director_events = consume_pending_events(simulation_dir, round_num + 1)
-        if director_events:
-            combined_text = " | ".join(e["event_text"] for e in director_events)
+        event_texts = [e["event_text"] for e in director_events] if director_events else []
+        # Counterfactual: fire exactly once, at the trigger round
+        if cf_spec and round_num == int(cf_spec.get("trigger_round", -1)):
+            label = cf_spec.get("label") or "counterfactual event"
+            event_texts.append(
+                f"[COUNTERFACTUAL] {label}: {cf_spec['injection_text'].strip()}"
+            )
+            log_info(f"Counterfactual fired at round {round_num + 1}: {label}")
+        if event_texts:
+            combined_text = " | ".join(event_texts)
             for _, agent in active_agents:
                 inject_director_event_context(agent, combined_text)
-            log_info(f"Director Mode: injected {len(director_events)} event(s) at round {round_num + 1}")
+            if director_events:
+                log_info(f"Director Mode: injected {len(director_events)} event(s) at round {round_num + 1}")
 
         actions = {agent: LLMAction() for _, agent in active_agents}
-        await result.env.step(actions)
+        if not await _safe_env_step(result.env, actions, round_num, log_info):
+            if action_logger:
+                action_logger.log_round_end(round_num + 1, 0)
+            continue
 
         # Fetch actually executed actions from database and log them
-        actual_actions, last_rowid = fetch_new_actions_from_db(
-            db_path, last_rowid, agent_names
-        )
+        try:
+            actual_actions, last_rowid = fetch_new_actions_from_db(
+                db_path, last_rowid, agent_names
+            )
+        except Exception as exc:  # noqa: BLE001
+            log_info(f"Round {round_num + 1} fetch_actions failed: {exc!r}")
+            actual_actions = []
 
         # Update beliefs based on this round's actions (will be injected next round)
-        belief_tracker.after_round(db_path, result.env, active_agents, round_num, actual_actions)
+        try:
+            belief_tracker.after_round(db_path, result.env, active_agents, round_num, actual_actions)
+        except Exception as exc:  # noqa: BLE001
+            log_info(f"Round {round_num + 1} belief update failed: {exc!r}")
 
         # Publish sentiment to bridge for Polymarket agents to see
         if market_media_bridge:
@@ -1956,6 +2056,12 @@ async def run_polymarket_simulation(
         + (f" (resuming from round {start_round})" if is_resume else "")
     )
 
+    # Universal agent guidelines (e.g. "no hashtags") — inject once; system
+    # messages persist for the life of each agent.
+    _n_rules = inject_posting_rules_into_graph(result.agent_graph)
+    if _n_rules:
+        log_info(f"Posting rules injected into {_n_rules} agents")
+
     if action_logger:
         action_logger.log_simulation_start(config)
 
@@ -2020,6 +2126,14 @@ async def run_polymarket_simulation(
     total_actions = 0
     last_rowid = 0
 
+    # Counterfactual branch spec (fires once at trigger_round when present)
+    cf_spec = load_counterfactual(simulation_dir)
+    if cf_spec:
+        log_info(
+            f"Counterfactual branch active: will fire at round "
+            f"{cf_spec.get('trigger_round')} — {cf_spec.get('label', 'unlabeled')}"
+        )
+
     if start_round > 0:
         log_info(f"Resuming from round {start_round}")
 
@@ -2070,20 +2184,41 @@ async def run_polymarket_simulation(
                 for _, agent in active_agents:
                     inject_sentiment_context(agent, sentiment_prompt)
 
+        # Counterfactual: fire exactly once, at the trigger round
+        if cf_spec and round_num == int(cf_spec.get("trigger_round", -1)):
+            label = cf_spec.get("label") or "counterfactual event"
+            cf_text = f"[COUNTERFACTUAL] {label}: {cf_spec['injection_text'].strip()}"
+            for _, agent in active_agents:
+                inject_director_event_context(agent, cf_text)
+            log_info(f"Counterfactual fired at round {round_num + 1}: {label}")
+
         actions = {agent: LLMAction() for _, agent in active_agents}
-        await result.env.step(actions)
+        if not await _safe_env_step(result.env, actions, round_num, log_info):
+            if action_logger:
+                action_logger.log_round_end(round_num + 1, 0)
+            continue
 
         # Fetch actions from trace table
-        actual_actions, last_rowid = _fetch_polymarket_actions_from_db(
-            db_path, last_rowid, agent_names
-        )
+        try:
+            actual_actions, last_rowid = _fetch_polymarket_actions_from_db(
+                db_path, last_rowid, agent_names
+            )
+        except Exception as exc:  # noqa: BLE001
+            log_info(f"Round {round_num + 1} fetch_actions failed: {exc!r}")
+            actual_actions = []
 
         # Publish updated market prices to bridge for social media agents to see
         if market_media_bridge:
-            market_media_bridge.update_prices(db_path, round_num)
+            try:
+                market_media_bridge.update_prices(db_path, round_num)
+            except Exception as exc:  # noqa: BLE001
+                log_info(f"Round {round_num + 1} market price update failed: {exc!r}")
 
         # Update beliefs based on this round's actions (will be injected next round)
-        belief_tracker.after_round(db_path, result.env, active_agents, round_num, actual_actions)
+        try:
+            belief_tracker.after_round(db_path, result.env, active_agents, round_num, actual_actions)
+        except Exception as exc:  # noqa: BLE001
+            log_info(f"Round {round_num + 1} belief update failed: {exc!r}")
 
         # Record to cross-platform log
         if cross_platform_log and actual_actions:
@@ -2244,6 +2379,18 @@ async def run_synchronized_simulation(
         await polymarket_result.env.reset()
         log_info("[Polymarket] Environment ready")
 
+    # Universal agent guidelines (e.g. "no hashtags"), injected once per
+    # platform. System messages persist, so this covers the whole run.
+    for _label, _result in (
+        ("Twitter", twitter_result),
+        ("Reddit", reddit_result),
+        ("Polymarket", polymarket_result),
+    ):
+        if _result is not None:
+            _n = inject_posting_rules_into_graph(_result.agent_graph)
+            if _n:
+                log_info(f"[{_label}] Posting rules injected into {_n} agents")
+
     # ── Initialize belief trackers ──
     twitter_belief = BeliefTracker(config, simulation_dir, "twitter") if has_twitter else None
     reddit_belief = BeliefTracker(config, simulation_dir, "reddit") if has_reddit else None
@@ -2361,6 +2508,14 @@ async def run_synchronized_simulation(
     start_time = datetime.now()
     log_info(f"Starting synchronized simulation: {total_rounds} rounds")
 
+    # Counterfactual branch spec (fires once at trigger_round when present)
+    cf_spec = load_counterfactual(simulation_dir)
+    if cf_spec:
+        log_info(
+            f"Counterfactual branch active: will fire at round "
+            f"{cf_spec.get('trigger_round')} — {cf_spec.get('label', 'unlabeled')}"
+        )
+
     for round_num in range(start_round, total_rounds):
         if _shutdown_event and _shutdown_event.is_set():
             log_info(f"Shutdown signal at round {round_num + 1}")
@@ -2373,11 +2528,17 @@ async def run_synchronized_simulation(
         # ── Initialize round memory for this round ──
         round_memory.start_round(round_num, simulated_day, simulated_hour)
 
-        # ── Director Mode: consume pending events and prepare injection ──
+        # ── Director Mode + Counterfactual: build unified injection text ──
         director_events = consume_pending_events(simulation_dir, round_num + 1)
-        director_text = None
+        event_texts = [e["event_text"] for e in director_events] if director_events else []
+        if cf_spec and round_num == int(cf_spec.get("trigger_round", -1)):
+            label = cf_spec.get("label") or "counterfactual event"
+            event_texts.append(
+                f"[COUNTERFACTUAL] {label}: {cf_spec['injection_text'].strip()}"
+            )
+            log_info(f"Counterfactual fired at round {round_num + 1}: {label}")
+        director_text = " | ".join(event_texts) if event_texts else None
         if director_events:
-            director_text = " | ".join(e["event_text"] for e in director_events)
             log_info(f"Director Mode: injected {len(director_events)} event(s) at round {round_num + 1}")
 
         # ── All 3 platforms run simultaneously ──
@@ -2501,14 +2662,25 @@ async def run_synchronized_simulation(
                 platform_tasks.append(("polymarket", _step_polymarket()))
 
         # Run ALL platforms in parallel (they all see previous-round context)
+        # Hard timeout prevents a hung LLM call from freezing the whole run.
         platform_results = {}
         if platform_tasks:
             task_names = [t[0] for t in platform_tasks]
             task_coros = [t[1] for t in platform_tasks]
-            results = await asyncio.gather(*task_coros, return_exceptions=True)
+            try:
+                results = await asyncio.wait_for(
+                    asyncio.gather(*task_coros, return_exceptions=True),
+                    timeout=_ROUND_TIMEOUT_SECONDS,
+                )
+            except asyncio.TimeoutError:
+                log_info(
+                    f"Round {round_num + 1} timed out after "
+                    f"{_ROUND_TIMEOUT_SECONDS}s — skipping remaining platforms"
+                )
+                results = [asyncio.TimeoutError()] * len(task_names)
             for name, result in zip(task_names, results):
                 if isinstance(result, Exception):
-                    log_info(f"[{name}] Round {round_num+1} failed: {result}")
+                    log_info(f"[{name}] Round {round_num+1} failed: {result!r}")
                 else:
                     platform_results[name] = result
 

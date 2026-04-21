@@ -759,7 +759,7 @@ class SimulationRunner:
                                 elif event_type == "round_end":
                                     round_num = action_data.get("round", 0)
                                     simulated_hours = action_data.get("simulated_hours", 0)
-                                    
+
                                     # Update per-platform independent round and time
                                     if platform == "twitter":
                                         if round_num > state.twitter_current_round:
@@ -779,7 +779,21 @@ class SimulationRunner:
                                         state.current_round = round_num
                                     # Overall time is the maximum of all platforms
                                     state.simulated_hours = max(state.twitter_simulated_hours, state.reddit_simulated_hours, state.polymarket_simulated_hours)
-                                
+
+                                # Advance the UI counter as soon as a round starts
+                                # (previously we only advanced on round_end, which lagged
+                                # the display by a full round-duration).
+                                elif event_type == "round_start":
+                                    round_num = action_data.get("round", 0)
+                                    if platform == "twitter" and round_num > state.twitter_current_round:
+                                        state.twitter_current_round = round_num
+                                    elif platform == "reddit" and round_num > state.reddit_current_round:
+                                        state.reddit_current_round = round_num
+                                    elif platform == "polymarket" and round_num > state.polymarket_current_round:
+                                        state.polymarket_current_round = round_num
+                                    if round_num > state.current_round:
+                                        state.current_round = round_num
+
                                 continue
                             
                             action = AgentAction(
