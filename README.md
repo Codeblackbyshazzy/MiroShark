@@ -24,13 +24,10 @@
 
 ## What it does
 
-You bring a scenario. MiroShark builds the world around it.
-
-Hundreds of grounded agents. Twitter, Reddit, and a prediction market. Hour by hour.
-
-Chat with any of them. Drop breaking news mid-run. Fork the timeline.
-
-Get a report on what happened, citing actual posts and trades.
+- You bring a scenario. MiroShark builds the world around it.
+- Hundreds of grounded agents. Twitter, Reddit, and a prediction market. Hour by hour.
+- Chat with any of them. Drop breaking news mid-run. Fork the timeline.
+- Get a report on what happened, citing actual posts and trades.
 
 ## Quick start
 
