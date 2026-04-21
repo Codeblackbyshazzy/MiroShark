@@ -16,16 +16,18 @@ Five ways to run MiroShark. Pick one.
 - An OpenAI-compatible API key (OpenRouter, OpenAI, Anthropic…), Ollama for local inference, **or** Claude Code CLI
 - Python 3.11+, Node.js 18+, Neo4j 5.15+
 
-**Installing Neo4j** (pick whichever fits your OS — the launcher detects whichever is running):
+**Installing Neo4j** (the `./miroshark` launcher starts it for you — you only need to install the package):
 
-- **macOS** — `brew install neo4j && brew services start neo4j`
+- **macOS** — `brew install neo4j`
 - **Linux** — `sudo apt install neo4j` *(or your distro's equivalent)*
+- **Windows** — install [Neo4j Desktop](https://neo4j.com/download/) (GUI — start the DB there, then run the launcher from WSL2 or Git Bash), or run the whole stack inside [WSL2](https://learn.microsoft.com/windows/wsl/install) and follow the Linux steps
 - **Zero-install** — create a free [Neo4j Aura](https://neo4j.com/cloud/aura-free/) cloud instance and set `NEO4J_URI` / `NEO4J_PASSWORD` in `.env`
 
-After first launch, set the password — MiroShark's default is `miroshark` to match `.env.example`:
+> The `./miroshark` launcher is a bash script — on Windows it needs WSL2 or Git Bash.
+
+Set the password once on macOS/Linux native installs — MiroShark's default is `miroshark` to match `.env.example`:
 
 ```bash
-# macOS / Linux native install (one-time)
 neo4j-admin dbms set-initial-password miroshark
 ```
 
@@ -50,7 +52,7 @@ Deploy to the cloud in under 3 minutes — no local setup required.
 **Before you deploy, create:**
 
 1. A free [Neo4j Aura](https://neo4j.com/cloud/aura-free/) instance — grab the `NEO4J_URI` (starts with `neo4j+s://`) and password.
-2. An [OpenRouter](https://openrouter.ai/) API key — used for LLM calls and embeddings. Free credits on signup.
+2. An [OpenRouter](https://openrouter.ai/) API key — used for LLM calls and embeddings.
 
 ### Railway (recommended — persistent storage, free trial)
 
@@ -78,9 +80,9 @@ Render reads `render.yaml` automatically. Set the same env vars above when promp
 
 ## Quick start: `./miroshark` launcher
 
-**The recommended path** — one [OpenRouter](https://openrouter.ai/) key and the launcher. No GPU, no Ollama, no model downloads.
+**The recommended path** — one [OpenRouter](https://openrouter.ai/) key and the launcher.
 
-**Prereqs** — Python 3.11+, Node 18+, Docker (for Neo4j), and a free OpenRouter key.
+**Prereqs** — Python 3.11+, Node 18+, Neo4j (`brew install neo4j` / `sudo apt install neo4j`), and an OpenRouter key.
 
 ```bash
 git clone https://github.com/aaronjmars/MiroShark.git && cd MiroShark
@@ -130,7 +132,7 @@ What the launcher does:
 5. Launches Vite dev server (`:3000`) and Flask API (`:5001`)
 6. Ctrl+C to stop everything
 
-Open `http://localhost:3000`. First simulation ≈ 15–25 min, ~$1.20 (Cheap) to ~$3.50 (Best). See [Models](MODELS.md) for the full preset benchmark.
+Open `http://localhost:3000`. First simulation in ~10 min, ~$1.20 (Cheap) to ~$3.50 (Best). See [Models](MODELS.md) for the full preset benchmark.
 
 > Prefer to run everything local? Skip to [Option B (Docker + Ollama)](#option-b-docker--local-ollama) or [Option C (manual Ollama)](#option-c-manual--local-ollama) below.
 

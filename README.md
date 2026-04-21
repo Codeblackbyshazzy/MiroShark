@@ -31,14 +31,15 @@
 
 ## Quick start
 
-The recommended path: **one [OpenRouter](https://openrouter.ai/) key + the `./miroshark` launcher.** No GPU, no Ollama, no model downloads. First simulation ≈ 15–25 min, ~$1.20 (Cheap preset) to ~$3.50 (Best preset).
+The recommended path: **one [OpenRouter](https://openrouter.ai/) key + the `./miroshark` launcher.** First simulation in ~10 min, ~$1.20 (Cheap preset) to ~$3.50 (Best preset).
 
-**Prereqs** — Python 3.11+, Node 18+, Neo4j, and a free [OpenRouter key](https://openrouter.ai/).
+**Prereqs** — Python 3.11+, Node 18+, Neo4j, and an [OpenRouter key](https://openrouter.ai/).
 
-Install Neo4j (pick one — the launcher detects whichever is running):
+Install Neo4j — the launcher starts it for you:
 
-- **macOS** — `brew install neo4j && brew services start neo4j`
+- **macOS** — `brew install neo4j`
 - **Linux** — `sudo apt install neo4j` *(or your distro's equivalent)*
+- **Windows** — install [Neo4j Desktop](https://neo4j.com/download/) *(native, GUI — start the DB there, then run the launcher from WSL2 or Git Bash)*, or run the whole stack inside [WSL2](https://learn.microsoft.com/windows/wsl/install) and follow the Linux steps
 - **Zero-install** — create a free [Neo4j Aura](https://neo4j.com/cloud/aura-free/) cloud instance and point `NEO4J_URI` / `NEO4J_PASSWORD` at it in `.env`
 
 Then:
