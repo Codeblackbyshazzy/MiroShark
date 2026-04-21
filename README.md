@@ -20,6 +20,18 @@
   <img src="./docs/images/miroshark.gif" alt="MiroShark Demo" />
 </p>
 
+<p align="center">
+  <img src="./docs/images/miroshark-overview.jpg" alt="MiroShark Overview" />
+</p>
+
+<p align="center">
+  <img src="./docs/images/diagram1.jpg" alt="Diagram 1" />
+</p>
+
+<p align="center">
+  <img src="./docs/images/diagram2.jpg" alt="Diagram 2" />
+</p>
+
 ---
 
 ## What it does
