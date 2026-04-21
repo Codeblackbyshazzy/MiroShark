@@ -130,7 +130,9 @@ const fetchSuggestions = async (preview) => {
       text_preview: preview,
       simulation_prompt: props.simulationPrompt || ''
     })
-    if (mySeq !== requestSeq.value) return  // superseded
+    // Only overwrite suggestions if this is still the latest call —
+    // otherwise a stale slow response could wipe a fresh result.
+    if (mySeq !== requestSeq.value) return
     if (!res || res.success === false) {
       suggestions.value = []
       return
@@ -142,6 +144,8 @@ const fetchSuggestions = async (preview) => {
     // Treat failures as "no suggestions" — the underlying form still works.
     suggestions.value = []
   } finally {
+    // Always clear loading on response. A newer in-flight request (if any)
+    // set loading=true again when it was scheduled, so this won't mask it.
     if (mySeq === requestSeq.value) {
       loading.value = false
     }
@@ -153,6 +157,9 @@ const schedule = (preview) => {
     clearTimeout(debounceTimer.value)
     debounceTimer.value = null
   }
+  // Light loading state the moment a fetch is queued so the spinner reflects
+  // the user's intent immediately, not 800ms later.
+  loading.value = true
   debounceTimer.value = setTimeout(() => {
     fetchSuggestions(preview)
   }, props.debounceMs)

@@ -200,8 +200,8 @@
                 >
                   <span class="url-doc-icon">◈</span>
                   <div class="url-doc-info">
-                    <div class="url-doc-title">{{ doc.title }}</div>
-                    <div class="url-doc-meta">{{ doc.char_count.toLocaleString() }} chars · {{ doc.url }}</div>
+                    <div class="url-doc-title" :title="doc.title">{{ truncate(doc.title, 70) }}</div>
+                    <div class="url-doc-meta" :title="doc.url">{{ doc.char_count.toLocaleString() }} chars · {{ truncate(doc.url, 72) }}</div>
                   </div>
                   <button @click.stop="removeUrlDocByRef(doc)" class="remove-btn">×</button>
                 </div>
@@ -247,8 +247,8 @@
                 >
                   <span class="url-doc-icon">◈</span>
                   <div class="url-doc-info">
-                    <div class="url-doc-title">{{ doc.title }}</div>
-                    <div class="url-doc-meta">{{ doc.char_count.toLocaleString() }} chars · {{ doc.url }}</div>
+                    <div class="url-doc-title" :title="doc.title">{{ truncate(doc.title, 70) }}</div>
+                    <div class="url-doc-meta" :title="doc.url">{{ doc.char_count.toLocaleString() }} chars · {{ truncate(doc.url, 72) }}</div>
                   </div>
                   <button @click.stop="removeUrlDocByRef(doc)" class="remove-btn">×</button>
                 </div>
@@ -565,6 +565,14 @@ const removeUrlDoc = (index) => {
 const removeUrlDocByRef = (doc) => {
   const idx = urlDocs.value.indexOf(doc)
   if (idx >= 0) urlDocs.value.splice(idx, 1)
+}
+
+// Hard-cap display strings so long titles / deep URLs can't widen the
+// doc-list row (CSS ellipsis can fail when intermediate flex ancestors
+// don't propagate min-width:0).
+const truncate = (s, max) => {
+  if (!s) return ''
+  return s.length > max ? s.slice(0, max - 1).trimEnd() + '…' : s
 }
 
 // Split docs by origin — Ask-synthesized briefings show under Just Ask,

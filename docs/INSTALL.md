@@ -91,29 +91,30 @@ git clone https://github.com/aaronjmars/MiroShark.git && cd MiroShark
 cp .env.example .env
 ```
 
-Edit `.env` and paste your OpenRouter key into all five slots (Best preset shown — swap `LLM_MODEL_NAME` to `google/gemini-2.0-flash-001` for the Cheap preset):
+Edit `.env` and paste your OpenRouter key into all five slots (Cheap preset shown — for Best, swap `LLM_MODEL_NAME` to `anthropic/claude-haiku-4.5` and `SMART_MODEL_NAME` to `anthropic/claude-sonnet-4.6`):
 
 ```bash
 LLM_API_KEY=sk-or-v1-YOUR_KEY
 LLM_BASE_URL=https://openrouter.ai/api/v1
-LLM_MODEL_NAME=anthropic/claude-haiku-4.5
+LLM_MODEL_NAME=qwen/qwen3.5-flash-02-23
 
 SMART_PROVIDER=openai
 SMART_API_KEY=sk-or-v1-YOUR_KEY
 SMART_BASE_URL=https://openrouter.ai/api/v1
-SMART_MODEL_NAME=anthropic/claude-sonnet-4.6
+SMART_MODEL_NAME=deepseek/deepseek-v3.2
 
-NER_MODEL_NAME=google/gemini-2.0-flash-001
+NER_MODEL_NAME=x-ai/grok-4.1-fast
 NER_BASE_URL=https://openrouter.ai/api/v1
 NER_API_KEY=sk-or-v1-YOUR_KEY
 
-WONDERWALL_MODEL_NAME=google/gemini-2.0-flash-lite-001
+WONDERWALL_MODEL_NAME=qwen/qwen3.5-flash-02-23
+WEB_SEARCH_MODEL=x-ai/grok-4.1-fast:online
 
 OPENAI_API_KEY=sk-or-v1-YOUR_KEY
 OPENAI_API_BASE_URL=https://openrouter.ai/api/v1
 
 EMBEDDING_PROVIDER=openai
-EMBEDDING_MODEL=openai/text-embedding-3-small
+EMBEDDING_MODEL=openai/text-embedding-3-large
 EMBEDDING_BASE_URL=https://openrouter.ai/api
 EMBEDDING_API_KEY=sk-or-v1-YOUR_KEY
 EMBEDDING_DIMENSIONS=768
@@ -134,7 +135,7 @@ What the launcher does:
 5. Launches Vite dev server (`:3000`) and Flask API (`:5001`)
 6. Ctrl+C to stop everything
 
-Open `http://localhost:3000`. First simulation in ~10 min, ~$1.20 (Cheap) to ~$3.50 (Best). See [Models](MODELS.md) for the full preset benchmark.
+Open `http://localhost:3000`. First simulation in ~10 min, ~$1 (Cheap) to ~$3.50 (Best). See [Models](MODELS.md) for the full preset breakdown.
 
 > Prefer to run everything local? Skip to [Option B (Docker + Ollama)](#option-b-docker--local-ollama) or [Option C (manual Ollama)](#option-c-manual--local-ollama) below.
 
@@ -157,24 +158,25 @@ One key covers every slot, including embeddings. Easiest to set up and the path 
 ```bash
 LLM_API_KEY=sk-or-v1-YOUR_KEY
 LLM_BASE_URL=https://openrouter.ai/api/v1
-LLM_MODEL_NAME=anthropic/claude-haiku-4.5
+LLM_MODEL_NAME=qwen/qwen3.5-flash-02-23
 
 SMART_PROVIDER=openai
 SMART_API_KEY=sk-or-v1-YOUR_KEY
 SMART_BASE_URL=https://openrouter.ai/api/v1
-SMART_MODEL_NAME=anthropic/claude-sonnet-4.6
+SMART_MODEL_NAME=deepseek/deepseek-v3.2
 
-NER_MODEL_NAME=google/gemini-2.0-flash-001
+NER_MODEL_NAME=x-ai/grok-4.1-fast
 NER_BASE_URL=https://openrouter.ai/api/v1
 NER_API_KEY=sk-or-v1-YOUR_KEY
 
-WONDERWALL_MODEL_NAME=google/gemini-2.0-flash-lite-001
+WONDERWALL_MODEL_NAME=qwen/qwen3.5-flash-02-23
+WEB_SEARCH_MODEL=x-ai/grok-4.1-fast:online
 
 OPENAI_API_KEY=sk-or-v1-YOUR_KEY
 OPENAI_API_BASE_URL=https://openrouter.ai/api/v1
 
 EMBEDDING_PROVIDER=openai
-EMBEDDING_MODEL=openai/text-embedding-3-small
+EMBEDDING_MODEL=openai/text-embedding-3-large
 EMBEDDING_BASE_URL=https://openrouter.ai/api
 EMBEDDING_API_KEY=sk-or-v1-YOUR_KEY
 EMBEDDING_DIMENSIONS=768

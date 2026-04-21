@@ -259,6 +259,12 @@ class LLMClient:
             }
             if sim_id:
                 extra["session_id"] = sim_id
+            # Disable chain-of-thought on reasoning-capable models by default —
+            # we want short, deterministic outputs, not a 100-token <think>
+            # trace padding every call. Saves 50-80% latency on Qwen3/Grok-4.1
+            # in benchmarks; no-ops on models that don't support the flag.
+            if Config.LLM_DISABLE_REASONING:
+                extra["reasoning"] = {"enabled": False}
             kwargs["extra_body"] = extra
 
         t0 = time.perf_counter()

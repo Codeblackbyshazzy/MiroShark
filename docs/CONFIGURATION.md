@@ -8,7 +8,7 @@ All settings live in `.env` (copy from `.env.example`). The full reference below
 # LLM
 LLM_API_KEY=your-api-key
 LLM_BASE_URL=https://openrouter.ai/api/v1     # or http://localhost:11434/v1 for Ollama
-LLM_MODEL_NAME=anthropic/claude-haiku-4.5
+LLM_MODEL_NAME=qwen/qwen3.5-flash-02-23
 
 # Neo4j
 NEO4J_URI=bolt://localhost:7687
@@ -17,7 +17,7 @@ NEO4J_PASSWORD=miroshark
 
 # Embeddings
 EMBEDDING_PROVIDER=openai                     # or "ollama"
-EMBEDDING_MODEL=openai/text-embedding-3-small
+EMBEDDING_MODEL=openai/text-embedding-3-large
 EMBEDDING_API_KEY=your-api-key
 EMBEDDING_DIMENSIONS=768
 ```
@@ -47,14 +47,20 @@ LLM_BASE_URL=http://localhost:11434/v1
 LLM_MODEL_NAME=qwen2.5:32b
 
 # ─── Smart model (reports, ontology, graph reasoning — #1 quality lever) ───
-# SMART_PROVIDER=claude-code
-# SMART_MODEL_NAME=claude-sonnet-4-20250514
+# SMART_PROVIDER=openai
+# SMART_MODEL_NAME=deepseek/deepseek-v3.2      # Cheap preset
+# SMART_MODEL_NAME=anthropic/claude-sonnet-4.6 # Best preset (far stronger reports)
 
 # ─── Wonderwall (agent sim loop — #1 cost driver, use cheapest viable) ───
-# WONDERWALL_MODEL_NAME=google/gemini-2.0-flash-lite-001
+# WONDERWALL_MODEL_NAME=qwen/qwen3.5-flash-02-23
 
-# ─── NER (entity extraction — needs reliable JSON, avoid flash-lite) ───
-# NER_MODEL_NAME=google/gemini-2.0-flash-001
+# ─── NER (entity extraction — needs reliable JSON, no hidden CoT) ───
+# NER_MODEL_NAME=x-ai/grok-4.1-fast
+
+# ─── Disable chain-of-thought on reasoning-capable OpenRouter models ───
+# ~3x lower latency on Qwen3-Flash / Grok-4.1-Fast. Flip to false
+# per-deployment if a slot needs CoT.
+LLM_DISABLE_REASONING=true
 
 # ─── Claude Code mode (only when LLM_PROVIDER=claude-code) ───
 # CLAUDE_CODE_MODEL=claude-sonnet-4-20250514
@@ -95,8 +101,10 @@ COMMUNITY_MAX_COUNT=30
 REASONING_TRACE_ENABLED=true
 
 # ─── Web Enrichment (auto-researches public figures during persona gen) ───
+# Also powers the /api/graph/fetch-url URL importer — models without native
+# browsing must use an ":online" variant.
 WEB_ENRICHMENT_ENABLED=true
-# WEB_SEARCH_MODEL=google/gemini-2.0-flash-001:online
+# WEB_SEARCH_MODEL=x-ai/grok-4.1-fast:online
 
 # ─── Embedding batching ───
 # How many texts per HTTP request. Higher is faster on graph builds;
@@ -154,6 +162,7 @@ All retrieval and memory features are on by default. Disable individually:
 | `REASONING_TRACE_ENABLED` | `true` | Report reasoning isn't persisted to the graph |
 | `WEB_ENRICHMENT_ENABLED` | `true` | Personas grounded only in the document |
 | `LLM_PROMPT_CACHING_ENABLED` | `true` | No Anthropic prompt caching on system messages |
+| `LLM_DISABLE_REASONING` | `true` | OpenRouter reasoning models emit CoT (~3× higher latency on Qwen3/Grok) |
 | `ORACLE_SEED_ENABLED` | `false` | Templates ignore `oracle_tools` |
 | `MCP_AGENT_TOOLS_ENABLED` | `false` | `tools_enabled` personas can't invoke MCP |
 

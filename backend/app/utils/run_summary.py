@@ -24,7 +24,11 @@ logger = get_logger('miroshark.run_summary')
 # OpenRouter pricing ($/1M tokens) — update as needed
 # ---------------------------------------------------------------------------
 MODEL_PRICING = {
-    # Gemini
+    # Current Cheap preset (update as OpenRouter prices drift)
+    "qwen/qwen3.5-flash-02-23":          {"input": 0.065, "output": 0.26},
+    "deepseek/deepseek-v3.2":            {"input": 0.252, "output": 0.378},
+    "x-ai/grok-4.1-fast":                {"input": 0.20, "output": 0.50},
+    # Gemini (still tracked for mixed / legacy setups)
     "google/gemini-2.0-flash-001":       {"input": 0.10, "output": 0.40},
     "google/gemini-2.0-flash-lite-001":  {"input": 0.075, "output": 0.30},
     "google/gemini-2.5-flash":           {"input": 0.15, "output": 0.60},
@@ -41,6 +45,7 @@ MODEL_PRICING = {
     "qwen/qwen3-235b-a22b-2507":        {"input": 0.50, "output": 2.00},
     # Embeddings
     "openai/text-embedding-3-small":     {"input": 0.02, "output": 0.00},
+    "openai/text-embedding-3-large":     {"input": 0.13, "output": 0.00},
 }
 
 # :online suffix adds $0.02/search (approximated as fixed per-call cost)

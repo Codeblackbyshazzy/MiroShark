@@ -31,7 +31,7 @@
 
 ## Quick start
 
-The recommended path: **one [OpenRouter](https://openrouter.ai/) key + the `./miroshark` launcher.** First simulation in ~10 min, ~$1.20 (Cheap preset) to ~$3.50 (Best preset).
+The recommended path: **one [OpenRouter](https://openrouter.ai/) key + the `./miroshark` launcher.** First simulation in ~10 min, ~$1 (Cheap preset) to ~$3.50 (Best preset).
 
 **Prereqs** — Python 3.11+, Node 18+, Neo4j, and an [OpenRouter key](https://openrouter.ai/).
 

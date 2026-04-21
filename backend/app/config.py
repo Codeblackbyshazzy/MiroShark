@@ -30,16 +30,18 @@ class Config:
     # LLM configuration (unified OpenAI format)
     # LLM_PROVIDER: "openai" (default, any OpenAI-compatible API) or "claude-code" (local CLI)
     # Default model is used for profile generation, sim config, memory compaction.
-    # Recommended: anthropic/claude-haiku-4.5 (rich personas, dense sim configs)
+    # Cheap preset: qwen/qwen3.5-flash-02-23 (with LLM_DISABLE_REASONING=true)
+    # Best preset:  anthropic/claude-haiku-4.5 (rich personas, dense sim configs)
     LLM_PROVIDER = os.environ.get('LLM_PROVIDER', 'openai')
     LLM_API_KEY = os.environ.get('LLM_API_KEY')
     LLM_BASE_URL = os.environ.get('LLM_BASE_URL', 'https://api.openai.com/v1')
-    LLM_MODEL_NAME = os.environ.get('LLM_MODEL_NAME', 'anthropic/claude-haiku-4.5')
+    LLM_MODEL_NAME = os.environ.get('LLM_MODEL_NAME', 'qwen/qwen3.5-flash-02-23')
 
     # Smart model — stronger model for intelligence-sensitive workflows
     # (report generation, ontology extraction, graph reasoning).
     # When not set, these workflows use the default LLM config above.
-    # Recommended: anthropic/claude-sonnet-4.6 (#1 quality lever, 9/10 report quality)
+    # Cheap preset: deepseek/deepseek-v3.2 (non-reasoning, stable JSON)
+    # Best preset:  anthropic/claude-sonnet-4.6 (9/10 report quality)
     SMART_PROVIDER = os.environ.get('SMART_PROVIDER', '')   # "openai", "claude-code", or empty (inherit)
     SMART_API_KEY = os.environ.get('SMART_API_KEY', '')
     SMART_BASE_URL = os.environ.get('SMART_BASE_URL', '')
@@ -144,14 +146,13 @@ class Config:
 
     # Wonderwall model — model for Wonderwall/CAMEL agent simulation loop.
     # When not set, uses LLM_MODEL_NAME.
-    # Recommended: google/gemini-2.0-flash-lite-001 (#1 cost driver — cheapest at $0.56/run,
-    # newer models are 4-9x more expensive due to verbosity without quality gain)
+    # Cheap preset: qwen/qwen3.5-flash-02-23 (same as default to reuse quota)
+    # Wonderwall is the #1 cost driver — 850+ calls per run. Keep it cheap.
     WONDERWALL_MODEL_NAME = os.environ.get('WONDERWALL_MODEL_NAME', '')
 
     # NER model — faster model for entity extraction (high-volume, mechanical task)
     # When not set, NER uses the default LLM config above.
-    # Recommended: google/gemini-2.0-flash-001 (reliable JSON, no retries.
-    # flash-lite caused 3x retry bloat due to invalid JSON)
+    # Cheap preset: x-ai/grok-4.1-fast (stable JSON with reasoning disabled)
     NER_MODEL_NAME = os.environ.get('NER_MODEL_NAME', '')
     NER_BASE_URL = os.environ.get('NER_BASE_URL', '')
     NER_API_KEY = os.environ.get('NER_API_KEY', '')
@@ -167,6 +168,13 @@ class Config:
     # sections, all with the same system prompt) and graph-building NER.
     # Silently no-ops for non-Anthropic models.
     LLM_PROMPT_CACHING_ENABLED = os.environ.get('LLM_PROMPT_CACHING_ENABLED', 'true').lower() == 'true'
+
+    # Disable chain-of-thought on reasoning-capable OpenRouter models by default.
+    # Passes `reasoning: {enabled: false}` in extra_body — huge latency win
+    # (~3x on Qwen3-Flash, ~3x on Grok-4.1-Fast) and zero-op on models that
+    # ignore the flag. Set false if a slot benefits from CoT (rare for
+    # MiroShark's short, structured prompts).
+    LLM_DISABLE_REASONING = os.environ.get('LLM_DISABLE_REASONING', 'true').lower() == 'true'
 
     # Report Agent configuration
     REPORT_AGENT_MAX_TOOL_CALLS = int(os.environ.get('REPORT_AGENT_MAX_TOOL_CALLS', '5'))

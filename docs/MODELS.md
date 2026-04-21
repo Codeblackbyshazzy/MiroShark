@@ -6,25 +6,27 @@ Four independent model slots (see [Configuration](CONFIGURATION.md#model-slots) 
 
 Two benchmarked presets ship in `.env.example`. Copy one and set your API key.
 
-Each slot controls a different quality axis — benchmarked across 10+ model combos (full details in `models.md`):
+Each slot controls a different quality axis:
 
 | Slot | Controls | Key finding |
 |---|---|---|
-| **Default** | Persona richness, sim density | Haiku produces distinct 348-char voices; Gemini Flash produces generic 173-char copy |
-| **Smart** | Report quality (#1 lever) | Claude Sonnet 9/10, Gemini 2.5 Flash 5/10, DeepSeek 2/10 |
-| **NER** | Extraction reliability | gemini-2.0-flash reliable; flash-lite causes 3x retry bloat |
+| **Default** | Persona richness, sim density | Haiku produces distinct 348-char voices; cheaper models produce generic 170-char copy |
+| **Smart** | Report quality (#1 lever) | Claude Sonnet 9/10, cheaper alternatives 2–5/10 on prior benchmark runs |
+| **NER** | Extraction reliability | Needs deterministic JSON — pick a model that doesn't silently emit CoT |
 | **Wonderwall** | Cost (biggest consumer) | 850+ calls, 7M+ tokens. Verbosity matters more than $/M |
 
-### Cheap mode — ~$1.20/run, ~13 min
+### Cheap mode — ~$1/run, ~10 min
 
-All Gemini. Fast and reliable, but thin reports and generic personas.
+Qwen3.5 Flash + DeepSeek V3.2 + Grok-4.1 Fast. Reasoning is disabled on every slot (`LLM_DISABLE_REASONING=true` sends `reasoning: {enabled: false}` in `extra_body`), which is the difference between a ~45s scenario-suggest call and a ~3s one.
 
-| Slot | Model | $/M | Why |
+| Slot | Model | $/M (in/out) | Observed avg latency |
 |---|---|---|---|
-| Default | `google/gemini-2.0-flash-001` | $0.10 | Fast, reliable JSON |
-| Smart | `google/gemini-2.5-flash` | $0.30 | Adequate reports |
-| NER | `google/gemini-2.0-flash-001` | $0.10 | No retry bloat |
-| Wonderwall | `google/gemini-2.0-flash-lite-001` | $0.075 | Cheapest, least verbose |
+| Default | `qwen/qwen3.5-flash-02-23` | $0.065 / $0.26 | 8.5s (Wonderwall-heavy prompts) |
+| Smart | `deepseek/deepseek-v3.2` | $0.252 / $0.378 | 12.5s (report ReACT loops) |
+| NER | `x-ai/grok-4.1-fast` | $0.20 / $0.50 | 2.0s |
+| Wonderwall | `qwen/qwen3.5-flash-02-23` | $0.065 / $0.26 | 7.6s (per agent action) |
+
+Observed on a 359-call end-to-end run (2.99M tokens, ~67 min wall clock): **~$0.50 total** including Grok-`:online` web enrichment. Docs without public figures typically come in under $0.30.
 
 ### Best mode — ~$3.50/run, ~25 min
 
@@ -34,10 +36,12 @@ Claude reports, Haiku personas, cheap Wonderwall. Best report quality at reasona
 |---|---|---|---|
 | Default | `anthropic/claude-haiku-4.5` | $0.80/$4.00 | Rich personas, dense sim configs |
 | Smart | `anthropic/claude-sonnet-4.6` | $3.00/$15.00 | 9/10 report quality, only ~19 calls |
-| NER | `google/gemini-2.0-flash-001` | $0.10 | Proven reliable, no retries |
-| Wonderwall | `google/gemini-2.0-flash-lite-001` | $0.075 | Wonderwall doesn't drive quality — Smart does |
+| NER | `x-ai/grok-4.1-fast` | ~$0.20 | Stable JSON with reasoning off |
+| Wonderwall | `qwen/qwen3.5-flash-02-23` | ~$0.10 | Wonderwall doesn't drive quality — Smart does |
 
-> Both presets use `openai/text-embedding-3-small` for embeddings and `google/gemini-2.0-flash-001:online` for web research.
+> Cheap preset uses `openai/text-embedding-3-large` (truncated to 768 dims via Matryoshka) and `x-ai/grok-4.1-fast:online` for web research. Best preset inherits the same embedding + web-search defaults.
+>
+> **Latency note** — every OpenRouter call goes through `LLMClient`, which injects `reasoning: {enabled: false}` into `extra_body` by default. Turn it off with `LLM_DISABLE_REASONING=false` only if a specific slot benefits from chain-of-thought (rare for MiroShark's structured prompts).
 
 ## Local mode (Ollama)
 
