@@ -20,10 +20,6 @@
   <img src="./docs/images/miroshark.gif" alt="MiroShark Demo" />
 </p>
 
-<p align="center">
-  <img src="./docs/images/miroshark-overview.jpg" alt="MiroShark Overview" />
-</p>
-
 ---
 
 ## What it does
@@ -60,6 +56,10 @@ cp .env.example .env
 The launcher checks dependencies, starts Neo4j, installs frontend + backend, and serves `:3000` + `:5001`. Ctrl+C stops everything. Open `http://localhost:3000` and drop in a document.
 
 **Other paths** — [one-click Railway / Render deploy](docs/INSTALL.md#one-click-cloud), [Docker + Ollama](docs/INSTALL.md#option-b-docker--local-ollama), [manual Ollama](docs/INSTALL.md#option-c-manual--local-ollama), [Claude Code CLI](docs/INSTALL.md#option-d-claude-code-no-api-key) — all in **[docs/INSTALL.md](docs/INSTALL.md)**.
+
+<p align="center">
+  <img src="./docs/images/miroshark-overview.jpg" alt="MiroShark Overview" />
+</p>
 
 ## Features
 
