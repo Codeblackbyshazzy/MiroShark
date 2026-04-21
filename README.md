@@ -24,14 +24,6 @@
   <img src="./docs/images/miroshark-overview.jpg" alt="MiroShark Overview" />
 </p>
 
-<p align="center">
-  <img src="./docs/images/diagram1.jpg" alt="Diagram 1" />
-</p>
-
-<p align="center">
-  <img src="./docs/images/diagram2.jpg" alt="Diagram 2" />
-</p>
-
 ---
 
 ## What it does
@@ -111,6 +103,14 @@ Each feature is documented in **[docs/FEATURES.md](docs/FEATURES.md)**.
 <tr><td><img src="./docs/images/5.jpg" width="100%"/></td><td><img src="./docs/images/6.jpg" width="100%"/></td></tr>
 </table>
 </div>
+
+<p align="center">
+  <img src="./docs/images/diagram1.jpg" alt="Diagram 1" />
+</p>
+
+<p align="center">
+  <img src="./docs/images/diagram2.jpg" alt="Diagram 2" />
+</p>
 
 ## Documentation
 
