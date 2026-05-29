@@ -2,6 +2,7 @@
 MiroShark Backend - Flask application factory
 """
 
+import hmac
 import os
 import warnings
 
@@ -15,6 +16,22 @@ from flask_compress import Compress
 
 from .config import Config
 from .utils.logger import setup_logger, get_logger
+
+
+# Environment variables injected by common managed deploy platforms. Their
+# presence means we are NOT in local development, so the internal-key guard
+# must fail closed even if FLASK_DEBUG was left at its default of "True".
+_DEPLOY_PLATFORM_ENV_VARS = (
+    'RAILWAY_ENVIRONMENT',
+    'RAILWAY_PROJECT_ID',
+    'RAILWAY_SERVICE_ID',
+    'K_SERVICE',  # Google Cloud Run
+)
+
+
+def _is_deployed_environment() -> bool:
+    """True when running on a known managed deploy platform (Railway / Cloud Run)."""
+    return any(os.environ.get(var) for var in _DEPLOY_PLATFORM_ENV_VARS)
 
 
 def create_app(config_class=Config):
@@ -71,6 +88,46 @@ def create_app(config_class=Config):
         logger.debug(f"Request: {request.method} {request.path}")
         if request.content_type and 'json' in request.content_type:
             logger.debug(f"Request body: {request.get_json(silent=True)}")
+    
+    # Internal API authentication guard
+    @app.before_request
+    def internal_auth_guard():
+        """Protect expensive API routes with internal key authentication"""
+        # CORS preflight requests never carry custom headers — let Flask-CORS
+        # answer them instead of returning 401 and breaking browser clients.
+        if request.method == 'OPTIONS':
+            return
+
+        # Exempt health check endpoint
+        if request.path == '/health':
+            return
+
+        # Exempt OpenAPI docs (optional - keeps API surface discoverable)
+        if request.path in ['/api/openapi.json', '/api/openapi.yaml', '/api/docs']:
+            return
+
+        # Only protect /api/* routes
+        if not request.path.startswith('/api/'):
+            return
+
+        # Get internal key from environment
+        internal_key = os.environ.get('MIROSHARK_INTERNAL_KEY')
+
+        # If internal key is set, enforce authentication
+        if internal_key:
+            provided_key = request.headers.get('x-miroshark-internal-key')
+            # Constant-time comparison to avoid leaking the key via timing.
+            if not provided_key or not hmac.compare_digest(provided_key, internal_key):
+                logger.warning(f"Unauthorized API access attempt: {request.method} {request.path}")
+                return {'error': 'Unauthorized - Invalid or missing internal key'}, 401
+        else:
+            # Fail closed whenever we're not plainly in local development.
+            # FLASK_DEBUG defaults to "True", so Config.DEBUG alone is not a safe
+            # signal: on a managed deploy platform we must refuse rather than
+            # serve the protected API openly.
+            if _is_deployed_environment() or not Config.DEBUG:
+                logger.error(f"Protected API access attempted without MIROSHARK_INTERNAL_KEY configured: {request.method} {request.path}")
+                return {'error': 'Service not configured - missing internal key'}, 503
     
     @app.after_request
     def log_response(response):
