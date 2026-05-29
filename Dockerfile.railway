@@ -14,8 +14,27 @@ RUN cd backend && uv sync --frozen
 # Copy backend source code
 COPY backend ./backend
 
-# Expose the backend port (Railway will inject PORT env var)
+# Expose the backend port (Railway / Cloud Run inject the PORT env var)
 EXPOSE 5001
 
-# Start backend only (production mode)
-CMD ["/app/backend/.venv/bin/python", "backend/run.py"]
+# Gunicorn tuning. Defaults to a single worker with multiple threads: the
+# backend loads heavy ML models (torch / sentence-transformers) per worker, so
+# extra workers multiply memory; its workload is I/O-bound (LLM + Neo4j calls),
+# which threads handle well. Override via env on the platform if needed.
+ENV GUNICORN_WORKERS=1 \
+    GUNICORN_THREADS=8 \
+    GUNICORN_TIMEOUT=600
+
+# Start backend only via a production WSGI server (not the Flask dev server).
+# Shell form so ${PORT} (injected by the platform) is expanded; exec makes
+# gunicorn PID 1 so it receives SIGTERM for graceful shutdown.
+CMD exec /app/backend/.venv/bin/gunicorn \
+    --chdir /app/backend \
+    --bind "0.0.0.0:${PORT:-5001}" \
+    --workers "${GUNICORN_WORKERS}" \
+    --threads "${GUNICORN_THREADS}" \
+    --worker-class gthread \
+    --timeout "${GUNICORN_TIMEOUT}" \
+    --access-logfile - \
+    --error-logfile - \
+    "app:create_app()"

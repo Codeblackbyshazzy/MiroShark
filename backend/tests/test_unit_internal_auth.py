@@ -6,6 +6,35 @@ import pytest
 from app import create_app
 from app.config import Config
 
+_PLATFORM_ENV_VARS = (
+    'RAILWAY_ENVIRONMENT',
+    'RAILWAY_PROJECT_ID',
+    'RAILWAY_SERVICE_ID',
+    'K_SERVICE',
+)
+
+
+@pytest.fixture(autouse=True)
+def _restore_auth_env():
+    """Snapshot and restore the global auth state these tests mutate.
+
+    The guard reads MIROSHARK_INTERNAL_KEY, the deploy-platform env vars, and
+    Config.DEBUG from process-global state, so without this fixture a test that
+    sets one of them would leak into unrelated tests depending on run order.
+    """
+    saved_key = os.environ.get('MIROSHARK_INTERNAL_KEY')
+    saved_platform = {var: os.environ.get(var) for var in _PLATFORM_ENV_VARS}
+    saved_debug = Config.DEBUG
+    try:
+        yield
+    finally:
+        for var, val in {'MIROSHARK_INTERNAL_KEY': saved_key, **saved_platform}.items():
+            if val is None:
+                os.environ.pop(var, None)
+            else:
+                os.environ[var] = val
+        Config.DEBUG = saved_debug
+
 
 def test_health_endpoint_without_auth():
     """Test that /health endpoint is accessible without authentication"""
@@ -98,24 +127,42 @@ def test_protected_api_without_internal_key_env_debug():
     # Ensure internal key is not set
     if 'MIROSHARK_INTERNAL_KEY' in os.environ:
         del os.environ['MIROSHARK_INTERNAL_KEY']
-    
-    # Mock Config.DEBUG to simulate development mode
-    original_debug = Config.DEBUG
+    # Ensure no deploy-platform signal is present — fail-open is only for local dev.
+    for var in _PLATFORM_ENV_VARS:
+        os.environ.pop(var, None)
+
+    # Simulate development mode
     Config.DEBUG = True
-    
-    try:
-        app = create_app()
-        app.config['TESTING'] = True
-        
-        with app.test_client() as client:
-            # Test a protected API route when key is not configured in debug mode
-            # In debug mode without key, auth guard is disabled (fail-open for development)
-            # Request will fail with 400 due to missing required fields, not 401/503
-            response = client.post('/api/graph/ontology/generate')
-            # Should return 400 (bad request) because auth guard is disabled
-            assert response.status_code == 400
-    finally:
-        Config.DEBUG = original_debug
+
+    app = create_app()
+    app.config['TESTING'] = True
+
+    with app.test_client() as client:
+        # Test a protected API route when key is not configured in debug mode
+        # In debug mode without key, auth guard is disabled (fail-open for development)
+        # Request will fail with 400 due to missing required fields, not 401/503
+        response = client.post('/api/graph/ontology/generate')
+        # Should return 400 (bad request) because auth guard is disabled
+        assert response.status_code == 400
+
+
+def test_protected_api_fail_closed_on_deploy_platform_without_key():
+    """Without a key, a Railway/Cloud Run deploy must fail closed even if DEBUG is True.
+
+    Regression test: FLASK_DEBUG defaults to "True", so a deploy that forgets to
+    set both the key and FLASK_DEBUG=false must not serve the protected API openly.
+    """
+    os.environ.pop('MIROSHARK_INTERNAL_KEY', None)
+    os.environ['RAILWAY_ENVIRONMENT'] = 'staging'
+    # DEBUG left True on purpose, to prove the platform signal overrides it.
+    Config.DEBUG = True
+
+    app = create_app()
+    app.config['TESTING'] = True
+
+    with app.test_client() as client:
+        response = client.post('/api/graph/ontology/generate')
+        assert response.status_code == 503
 
 
 def test_openapi_docs_without_internal_key():
