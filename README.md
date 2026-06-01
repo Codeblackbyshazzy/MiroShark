@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./docs/images/miroshark.jpg" alt="MiroShark" width="120" />
+  <img src="./docs/images/miroshark-logo.jpg" alt="MiroShark" width="120" />
 </p>
 
 <h1 align="center">MiroShark</h1>
