@@ -87,56 +87,20 @@ After launching, click the **中 / EN** toggle in the top-right of the navbar to
 
 ### Features
 
+A few of the highlights:
+
 | Feature | What it does |
 |---|---|
 | **Smart Setup** | Drop in a doc → three auto-generated Bull / Bear / Neutral scenarios in ~2s |
-| **What's Trending** | Pick a live RSS news item to pre-fill the scenario in one click |
 | **Just Ask** | Type a question with no document — MiroShark researches and writes the seed briefing |
-| **Shareable Scenario Links** | `?scenario=…&url=…` / `?template=<slug>` URLs land readers on a pre-filled New Sim form |
 | **Counterfactual Branching** | Fork a running simulation with an injected event ("CEO resigns in round 24?") |
 | **Director Mode** | Inject breaking news into the *current* timeline without forking |
-| **Preset Templates** | 6 benchmarked scenarios: crypto launch, corporate crisis, political debate, product announcement, campus controversy, historical what-if |
-| **Live Oracle Data** | Opt-in grounded seeds from the [FeedOracle](https://mcp.feedoracle.io/mcp) MCP (484 tools) |
-| **Per-Agent MCP Tools** | Personas can invoke real MCP tools (web search, APIs) during simulation |
-| **Custom Wonderwall Endpoint** | Point the sim loop at any OpenAI-compatible endpoint via `WONDERWALL_BASE_URL` + `WONDERWALL_API_KEY` |
-| **Embed & Publish** | Public/private toggle + embed URLs for sharing finished runs |
-| **Social Share Card** | 1200×630 PNG auto-unfurling scenario, status, quality, and belief split on Twitter/X, Discord, Slack, LinkedIn |
-| **Animated Belief Replay** | 1200×630 GIF, one frame per round with belief bars sliding per distribution (Discord/Slack auto-play) |
-| **Transcript Export** | Per-round posts + stance labels as Markdown (YAML front matter) or structured JSON |
-| **Trajectory Export** | One row per round as RFC 4180 CSV or JSONL — Pandas / Excel / Tableau / R / Observable ready |
-| **Trajectory Chart SVG** | `chart.svg` scalable belief chart for `<img>` embeds in Notion / Substack / Ghost / READMEs; pure stdlib |
-| **Trading Signal JSON** | `signal.json` machine-readable `direction` + `confidence_pct` + `risk_tier` for quant / Zapier / alert pipelines |
-| **Archive Bundle** | `archive.zip` bundles every share surface plus a SHA-256 `manifest.json`; pure stdlib |
-| **Farcaster Frame** | Share page emits Frame v2 meta tags so `/share/<id>` renders as an interactive belief card in Warpcast |
-| **Tweet Thread Export** | `thread.txt` auto-formatted X thread — intro + one tweet per belief inflection + close, each ≤280 chars |
-| **Live Watch Page** | `/watch/<sim_id>` full-viewport broadcast page polling belief / round / progress every 15 s |
-| **Public Gallery** | `/explore` card grid of every published sim — preview, open, or one-click fork |
-| **Gallery Search & Filter** | Keyword + consensus + quality filters and date / rounds / agents / trending sort, bookmarkable URLs |
-| **Verified Predictions** | Annotate public sims with the real-world outcome; `/verified` is the hall of calls that landed |
-| **RSS / Atom Feeds** | `/api/feed.atom` + `/api/feed.rss` auto-publish every new sim (`?verified=1` for verified-only) |
-| **Search Engine Sitemap** | Auto-generated `/sitemap.xml` + `/robots.txt` make every public sim crawlable; opt-out via `ENABLE_SITEMAP=false` |
+| **Per-Agent MCP Tools** | Personas invoke real MCP tools (web search, APIs) during simulation |
 | **Article Generation** | Substack-style write-up of what happened, grounded in actual posts and trades |
-| **Interaction Network** | Force-directed agent-to-agent graph with echo-chamber metrics |
-| **Demographics** | Archetype clustering (analyst / influencer / retail / observer…) |
-| **Quality Diagnostics** | Health score per run — engagement, coherence, diversity, variance |
-| **History Database** | Search, clone, export, or delete any past simulation |
-| **Trace Interview** | See the full reasoning chain behind an agent's reply, not just the reply |
-| **Push Notifications** | Web-push alerts when long-running graph / sim / report jobs finish |
-| **Completion Webhook** | POST a JSON summary on sim finish — wires Slack, Discord, Zapier, Make, n8n with one URL field |
-| **Discord Rich Embed** | `DISCORD_WEBHOOK_URL` posts a consensus-coloured Discord-native embed; opt-in, pure stdlib |
-| **Slack Block Kit** | `SLACK_WEBHOOK_URL` posts a Slack-native Block Kit message with belief bars + action button; opt-in |
-| **SMTP Completion Emails** | `SMTP_HOST` + `SMTP_TO` ship a multipart email with belief bars and a consensus-coloured CTA on completion |
-| **Telegram Bot** | `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID` fire a Bot API message with belief bars + button on completion |
-| **Webhook Signature Verification** | Optional `WEBHOOK_SECRET` HMAC-signs payloads with `X-MiroShark-Signature` — Stripe / GitHub scheme |
-| **Webhook Delivery Log** | Per-sim `webhook-log.jsonl` logs every dispatch; inspect and retry failures from the EmbedDialog |
-| **Surface Usage Analytics** | `surface-stats` per-share-surface request counters for inbound distribution observability |
-| **Reproducibility Config** | `reproduce.json` v1 blob with every parameter to re-run a sim; bytewise-stable citation hash |
-| **Jupyter Notebook Export** | `notebook.ipynb` with embedded trajectory CSV + charting cells; runs air-gapped, bytewise-stable |
-| **Lineage Navigator** | `lineage` turns the `parent_simulation_id` pointer into a navigable parent/child graph |
-| **OriginTrail DKG Citation** | Opt-in: anchor scenario, consensus, and `reproduce.json` SHA-256 on the OriginTrail DKG as a verifiable Knowledge Asset |
-| **WaybackClaw Archive** | Opt-in: pin the finished snapshot to IPFS and broadcast a Nostr note via WaybackClaw in one POST |
+| **Public Gallery & Verified Predictions** | Browse and fork every published sim at `/explore`; track the calls that landed at `/verified` |
+| **Share everywhere** | Social cards, replay GIFs, tweet threads, RSS / Atom, embeds, and Slack / Discord / Telegram / webhook notifications |
 
-Each feature is documented in **[docs/FEATURES.md](docs/FEATURES.md)**.
+…and **40+ more** — share surfaces, exports, integrations, observability, and on-chain citation. See the **[full feature list and deep dives in docs/FEATURES.md](docs/FEATURES.md)**.
 
 ### Diagrams
 
@@ -223,47 +187,20 @@ cp .env.example .env
 
 ### 主要功能
 
+精选亮点:
+
 | 功能 | 说明 |
 |---|---|
 | **智能配置** | 投入文档 → 约 2 秒生成三套自动情景(看涨/看跌/中立) |
-| **热门追踪** | 从 RSS 中挑选实时新闻,一键预填情景 |
 | **直接提问** | 不用文档,直接打字提问 — MiroShark 自行调研并撰写种子简报 |
-| **可分享情景链接** | 在推文或博客文章中放入 `?scenario=...&url=...` 链接 — 读者一打开就会看到已预填的「新建模拟」表单。`?template=<slug>` 可自动启动任一预设模板。这是 `/watch` 与 `/share` 上「派生此情景」的「未运行情景」对应版本 |
 | **反事实分支** | 在运行中的模拟里派生分支并注入事件(「如果 24 轮时 CEO 辞职会怎样?」) |
 | **导演模式** | 在当前时间线中投入突发新闻,无需派生分支 |
-| **预设模板** | 6 套基准情景:加密代币发布、企业危机、政治辩论、产品发布、校园风波、历史假设 |
-| **现实预言机** | 可选地从 [FeedOracle](https://mcp.feedoracle.io/mcp) MCP 中拉取实时数据(484 个工具) |
 | **每个智能体的 MCP 工具** | 人设可在模拟过程中调用真实 MCP 工具(网页搜索、API 等) |
-| **自定义 Wonderwall 端点** | 将模拟主循环指向任意 OpenAI 兼容端点(自部署 vLLM、Modal、微调模型……),不影响 Default/Smart/NER。设置 `WONDERWALL_BASE_URL` + `WONDERWALL_API_KEY` |
-| **嵌入与发布** | 公开/私有切换 + 嵌入 URL,便于分享已完成的运行 |
-| **社交分享卡片** | 1200×630 PNG,自动展开情景、状态、质量与信念分布,适配 Twitter/X、Discord、Slack、LinkedIn |
-| **信念回放动图** | 1200×630 GIF,每轮一帧,信念条动态滑向各轮分布。Discord 与 Slack 在直接 URL 上自动播放 |
-| **转录导出** | 每轮智能体发帖与立场标签,导出为 Markdown(YAML 头,适配 Notion / Obsidian / Substack)或结构化 JSON(适配 SDK 与 LLM 评审管线) |
-| **推文串导出** | `GET /api/simulation/<id>/thread.txt` — 自动生成 X / Twitter 推文串:介绍推文 + 每个信念转折点(主导立场翻转的轮次)一条推文 + 末尾推文(附观看与分享 URL)。每条推文 ≤280 字符,可单条复制或整串复制。与分享卡片 / 回放 GIF / 转录 / 轨迹 / 实时观看页一同构成第六种分享形式 |
-| **公开图库** | `/explore` 以卡片网格浏览所有公开模拟 — 预览分享卡、共识分布与质量指标;一键打开或派生 |
-| **图库搜索与筛选** | 在 `/explore` 与 `/verified` 上提供关键词搜索 + 看涨/中立/看跌 + 优秀/良好/一般/较差 + 按日期/轮次/智能体/热门排序。`trending` 按累计分享面服务次数排序,让被分发最广的模拟浮于顶部。URL 编码后 `?q=aave&consensus=bearish` 可作为书签分享。与其他所有表面共享同一 ±0.2 立场阈值 |
-| **已验证预言** | 为公开模拟标注真实结果(命中 / 部分 / 失误 + 链接)。`/verified` 是命中预言专属展厅 |
-| **RSS / Atom 订阅源** | `/api/feed.atom` + `/api/feed.rss` — 每个新发布的模拟无需任何整理就会进入 Feedly / Readwise / Inoreader / NetNewsWire / Obsidian RSS。`?verified=1` 只看已验证内容 |
-| **搜索引擎站点地图** | 自动生成的 `/sitemap.xml`(sitemaps.org 0.9)列出每个公开模拟的 `/share/<id>` + `/watch/<id>` URL;配套的 `/robots.txt` 通过标准 `Sitemap:` 指令通告。在 Google Search Console 提交一次 — 每个新发布的模拟都将变得可被搜索。纯 stdlib `xml.etree.ElementTree`,可通过 `ENABLE_SITEMAP=false` 退出 |
 | **文章生成** | Substack 风格的复盘文章,基于真实发帖与交易数据 |
-| **互动网络** | 力导向智能体关系图,带回声室指标 |
-| **人口分布** | 原型聚类(分析师 / 影响者 / 散户 / 旁观者……) |
-| **质量诊断** | 单次运行的健康评分 — 参与度、连贯性、多样性、方差 |
-| **历史数据库** | 搜索、克隆、导出或删除任一过往模拟 |
-| **轨迹访谈** | 查看智能体回复背后的完整推理链,而不止是回复本身 |
-| **推送通知** | 长耗时图谱 / 模拟 / 报告任务完成时的浏览器推送提醒 |
-| **完成 Webhook** | 模拟一结束即 POST 一份 JSON 摘要 — 一个 URL 字段即可连通 Slack、Discord、Zapier、Make、n8n 或任意自定义端点 |
-| **Discord 富嵌入** | 设置 `DISCORD_WEBHOOK_URL`,MiroShark 会在通用 Webhook 之外另行推送一份 Discord 原生 embed:按共识着色的边框、情景标题、信念百分比字段、分享卡缩略图、链接。运营者无需再为 Discord 写格式化代码 — 纯 stdlib,按需启用,fire-and-forget。详见 [docs/NOTIFICATIONS.md](docs/NOTIFICATIONS.md) |
-| **Slack Block Kit** | 设置 `SLACK_WEBHOOK_URL`,MiroShark 会推送 Slack 原生 Block Kit 消息:情景标题块、Unicode 块字符信念百分比、质量 / 规模 / 结局字段、「打开模拟」操作按钮。频道里的不是 JSON 代码块,而是真正的频道卡片 — 纯 stdlib,按需启用,fire-and-forget |
-| **SMTP 完成邮件通知** | 设置 `SMTP_HOST` 与 `SMTP_TO`(逗号分隔的收件人列表),每次模拟达到终止状态都会以 `multipart/alternative` 发出一封邮件 — 纯文本部分带 Unicode 块字符信念条,HTML 部分配合 Discord 同色系内联色块和按共识着色的「View simulation →」CTA。主题为 `[MiroShark] Bullish: <情景>`,邮箱过滤规则只看主题就能按方向分流。`SMTP_USER`/`SMTP_PASSWORD` 可选(支持无认证 LAN 中继),587 端口尝试 STARTTLS,STARTTLS 失败时若设置了凭据会拒绝明文发送。这是唯一一个不需要任何平台账户的通知通道 — 每位运营者都已经有邮箱。详见 [docs/NOTIFICATIONS.md](docs/NOTIFICATIONS.md) |
-| **Telegram Bot 通知** | 设置 `TELEGRAM_BOT_TOKEN`(向 `@BotFather` 申请)和 `TELEGRAM_CHAT_ID`,每次模拟达到终止状态都会调用 Bot API `sendMessage`,以 HTML parse mode 渲染:加粗的情景标题、Unicode 块字符信念百分比、质量 / 规模 / 结局字段,以及一颗「View simulation」内联键盘按钮。覆盖 MiroShark 大量加密 / 政治辩论受众日常所在的即时通讯阵地。纯 stdlib,按需启用,fire-and-forget。详见 [docs/NOTIFICATIONS.md](docs/NOTIFICATIONS.md) |
-| **Webhook 签名验证** | 可选的 `WEBHOOK_SECRET` 会用 HMAC 对每次投递的载荷签名,并通过 `X-MiroShark-Signature: sha256=<hex>` 头部送出。消费方用三行 stdlib `hmac` 即可校验 — Stripe 和 GitHub 用的就是这一套。留空即无签名头部,完全向后兼容 |
-| **Webhook 投递日志** | 每个模拟在 `webhook-log.jsonl` 记录每次投递尝试(HTTP 状态码、延迟、错误)。可在 EmbedDialog 中查看,并通过「重试」按钮重发任何失败的投递 — 弥补每个 Zapier / n8n 集成最终都会遇到的运维盲点 |
-| **分发统计(分享面使用分析)** | `GET /api/simulation/<id>/surface-stats` — 每个分享面的请求计数器(分享卡 / 回放 GIF / 转录 / 轨迹 / 推文串 / 观看页 / Atom / RSS / `reproduce.json` / `/lineage`),以及合成的 `total`。Webhook 日志在出站侧跟踪分发回路,本面则负责入站可观测性 |
-| **可复现配置导出** | `GET /api/simulation/<id>/reproduce.json` — 分享面背后的引用基元。v1-schema 的 JSON 文档,携带另一位研究者复现同一次模拟所需的全部参数:情景、智能体数、轮次、平台切换、时序配置、导演事件、派生 / 反事实谱系。已完成模拟的多次导出在字节级别完全一致 — 文件哈希可作为稳定的引用键 |
-| **谱系导航** | `GET /api/simulation/<id>/lineage` — 将 `parent_simulation_id` 指针转化为可导航的图。展示该模拟派生 / 分支自的父模拟,以及每一个把父级指回此模拟的公开子模拟。无需记住每个子模拟 ID,即可追踪一项结果的思想脉络 |
+| **公开图库与已验证预言** | 在 `/explore` 浏览并派生所有公开模拟;在 `/verified` 追踪命中的预言 |
+| **全渠道分享** | 社交卡片、回放动图、推文串、RSS / Atom、嵌入,以及 Slack / Discord / Telegram / Webhook 通知 |
 
-每项功能详见 **[docs/FEATURES.zh-CN.md](docs/FEATURES.zh-CN.md)**。
+……以及 **40+ 项更多功能** — 分享表面、导出、集成、可观测性与链上引用。详见 **[完整功能列表与深入解析:docs/FEATURES.zh-CN.md](docs/FEATURES.zh-CN.md)**。
 
 ### 应用场景
 

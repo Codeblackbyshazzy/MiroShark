@@ -4,6 +4,59 @@
 
 Deep dive on every feature. One heading per feature, ordered roughly by when you'd hit it in a typical run.
 
+## All features at a glance
+
+<sub>The complete catalog — each feature is detailed in its own section below.</sub>
+
+| Feature | What it does |
+|---|---|
+| **Smart Setup** | Drop in a doc → three auto-generated Bull / Bear / Neutral scenarios in ~2s |
+| **What's Trending** | Pick a live RSS news item to pre-fill the scenario in one click |
+| **Just Ask** | Type a question with no document — MiroShark researches and writes the seed briefing |
+| **Shareable Scenario Links** | `?scenario=…&url=…` / `?template=<slug>` URLs land readers on a pre-filled New Sim form |
+| **Counterfactual Branching** | Fork a running simulation with an injected event ("CEO resigns in round 24?") |
+| **Director Mode** | Inject breaking news into the *current* timeline without forking |
+| **Preset Templates** | 6 benchmarked scenarios: crypto launch, corporate crisis, political debate, product announcement, campus controversy, historical what-if |
+| **Live Oracle Data** | Opt-in grounded seeds from the [FeedOracle](https://mcp.feedoracle.io/mcp) MCP (484 tools) |
+| **Per-Agent MCP Tools** | Personas can invoke real MCP tools (web search, APIs) during simulation |
+| **Custom Wonderwall Endpoint** | Point the sim loop at any OpenAI-compatible endpoint via `WONDERWALL_BASE_URL` + `WONDERWALL_API_KEY` |
+| **Embed & Publish** | Public/private toggle + embed URLs for sharing finished runs |
+| **Social Share Card** | 1200×630 PNG auto-unfurling scenario, status, quality, and belief split on Twitter/X, Discord, Slack, LinkedIn |
+| **Animated Belief Replay** | 1200×630 GIF, one frame per round with belief bars sliding per distribution (Discord/Slack auto-play) |
+| **Transcript Export** | Per-round posts + stance labels as Markdown (YAML front matter) or structured JSON |
+| **Trajectory Export** | One row per round as RFC 4180 CSV or JSONL — Pandas / Excel / Tableau / R / Observable ready |
+| **Trajectory Chart SVG** | `chart.svg` scalable belief chart for `<img>` embeds in Notion / Substack / Ghost / READMEs; pure stdlib |
+| **Trading Signal JSON** | `signal.json` machine-readable `direction` + `confidence_pct` + `risk_tier` for quant / Zapier / alert pipelines |
+| **Archive Bundle** | `archive.zip` bundles every share surface plus a SHA-256 `manifest.json`; pure stdlib |
+| **Farcaster Frame** | Share page emits Frame v2 meta tags so `/share/<id>` renders as an interactive belief card in Warpcast |
+| **Tweet Thread Export** | `thread.txt` auto-formatted X thread — intro + one tweet per belief inflection + close, each ≤280 chars |
+| **Live Watch Page** | `/watch/<sim_id>` full-viewport broadcast page polling belief / round / progress every 15 s |
+| **Public Gallery** | `/explore` card grid of every published sim — preview, open, or one-click fork |
+| **Gallery Search & Filter** | Keyword + consensus + quality filters and date / rounds / agents / trending sort, bookmarkable URLs |
+| **Verified Predictions** | Annotate public sims with the real-world outcome; `/verified` is the hall of calls that landed |
+| **RSS / Atom Feeds** | `/api/feed.atom` + `/api/feed.rss` auto-publish every new sim (`?verified=1` for verified-only) |
+| **Search Engine Sitemap** | Auto-generated `/sitemap.xml` + `/robots.txt` make every public sim crawlable; opt-out via `ENABLE_SITEMAP=false` |
+| **Article Generation** | Substack-style write-up of what happened, grounded in actual posts and trades |
+| **Interaction Network** | Force-directed agent-to-agent graph with echo-chamber metrics |
+| **Demographics** | Archetype clustering (analyst / influencer / retail / observer…) |
+| **Quality Diagnostics** | Health score per run — engagement, coherence, diversity, variance |
+| **History Database** | Search, clone, export, or delete any past simulation |
+| **Trace Interview** | See the full reasoning chain behind an agent's reply, not just the reply |
+| **Push Notifications** | Web-push alerts when long-running graph / sim / report jobs finish |
+| **Completion Webhook** | POST a JSON summary on sim finish — wires Slack, Discord, Zapier, Make, n8n with one URL field |
+| **Discord Rich Embed** | `DISCORD_WEBHOOK_URL` posts a consensus-coloured Discord-native embed; opt-in, pure stdlib |
+| **Slack Block Kit** | `SLACK_WEBHOOK_URL` posts a Slack-native Block Kit message with belief bars + action button; opt-in |
+| **SMTP Completion Emails** | `SMTP_HOST` + `SMTP_TO` ship a multipart email with belief bars and a consensus-coloured CTA on completion |
+| **Telegram Bot** | `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID` fire a Bot API message with belief bars + button on completion |
+| **Webhook Signature Verification** | Optional `WEBHOOK_SECRET` HMAC-signs payloads with `X-MiroShark-Signature` — Stripe / GitHub scheme |
+| **Webhook Delivery Log** | Per-sim `webhook-log.jsonl` logs every dispatch; inspect and retry failures from the EmbedDialog |
+| **Surface Usage Analytics** | `surface-stats` per-share-surface request counters for inbound distribution observability |
+| **Reproducibility Config** | `reproduce.json` v1 blob with every parameter to re-run a sim; bytewise-stable citation hash |
+| **Jupyter Notebook Export** | `notebook.ipynb` with embedded trajectory CSV + charting cells; runs air-gapped, bytewise-stable |
+| **Lineage Navigator** | `lineage` turns the `parent_simulation_id` pointer into a navigable parent/child graph |
+| **OriginTrail DKG Citation** | Opt-in: anchor scenario, consensus, and `reproduce.json` SHA-256 on the OriginTrail DKG as a verifiable Knowledge Asset |
+| **WaybackClaw Archive** | Opt-in: pin the finished snapshot to IPFS and broadcast a Nostr note via WaybackClaw in one POST |
+
 ## Smart Setup (Scenario Auto-Suggest)
 
 The Simulation Prompt field is the single blank-page barrier between uploading a document and running a simulation. Smart Setup removes it: the moment you drop in a `.md`/`.txt` file or paste a URL, MiroShark sends a short preview (~2K chars) of the extracted text to the configured LLM and returns three prediction-market-style scenario cards within ~2 seconds — one **Bull**, one **Bear**, one **Neutral** framing, each with a concrete YES/NO question, a plausible initial probability band, and a one-sentence rationale grounded in the document.
