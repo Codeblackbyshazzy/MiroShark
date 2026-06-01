@@ -1,5 +1,7 @@
 # Channel Notifications
 
+<sup>English · [中文](NOTIFICATIONS.zh-CN.md)</sup>
+
 MiroShark fires a notification the moment a simulation reaches a terminal
 state (`simulation.completed` or `simulation.failed`). Five independent
 channels run in parallel — each opt-in via its own env var (or env-var

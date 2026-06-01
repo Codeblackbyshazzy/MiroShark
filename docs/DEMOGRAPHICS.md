@@ -1,5 +1,7 @@
 # Demographic Grounding
 
+<sup>English · [中文](DEMOGRAPHICS.zh-CN.md)</sup>
+
 MiroShark personas are normally graph-grounded: each agent is the LLM's
 interpretation of an entity that came out of the knowledge-graph build
 (an alumni group, a journalist, an exchange, a regulator…). That makes
