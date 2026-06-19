@@ -232,7 +232,7 @@ class SimulationConfigGenerator:
 
     # Maximum context character count
     MAX_CONTEXT_LENGTH = 50000
-    # Number of Agents per batch
+    # Number of Agents per batch — keep small to avoid JSON truncation with local LLMs
     AGENTS_PER_BATCH = 15
 
     # Context truncation lengths for each step (characters)
@@ -341,16 +341,20 @@ class SimulationConfigGenerator:
         # Cap concurrency to avoid rate limits — 3 parallel LLM calls
         max_parallel_batches = min(3, num_batches)
 
+        from ..utils.i18n import get_active_locale, use_locale as _use_locale
+        _generation_locale = get_active_locale()  # capture before ThreadPoolExecutor; ContextVars don't cross threads
+
         def _gen_batch(batch_idx):
             start_idx = batch_idx * self.AGENTS_PER_BATCH
             end_idx = min(start_idx + self.AGENTS_PER_BATCH, len(entities))
             batch_entities = entities[start_idx:end_idx]
-            return batch_idx, self._generate_agent_configs_batch(
-                context=context,
-                entities=batch_entities,
-                start_idx=start_idx,
-                simulation_requirement=simulation_requirement,
-            )
+            with _use_locale(_generation_locale):
+                return batch_idx, self._generate_agent_configs_batch(
+                    context=context,
+                    entities=batch_entities,
+                    start_idx=start_idx,
+                    simulation_requirement=simulation_requirement,
+                )
 
         report_progress(3, f"Generating Agent configs ({num_batches} batches, {max_parallel_batches} parallel)...")
 
@@ -573,13 +577,17 @@ class SimulationConfigGenerator:
 
     def _generate_time_config(self, context: str, num_entities: int) -> Dict[str, Any]:
         """Generate time configuration"""
+        from ..utils.i18n import get_active_locale, lang_block
+        _locale = get_active_locale()
+        _lang_block = lang_block(_locale, ["reasoning"])
+
         # Use configured context truncation length
         context_truncated = context[:self.TIME_CONFIG_CONTEXT_LENGTH]
 
         # Calculate max allowed value (90% of agent count)
         max_agents_allowed = max(1, int(num_entities * 0.9))
 
-        prompt = f"""Based on the following simulation requirements, generate a time simulation configuration.
+        prompt = f"""{_lang_block}Based on the following simulation requirements, generate a time simulation configuration.
 
 {context_truncated}
 
@@ -698,6 +706,9 @@ Field descriptions:
         entities: List[EntityNode]
     ) -> Dict[str, Any]:
         """Generate event configuration"""
+        from ..utils.i18n import get_active_locale, lang_block
+        _locale = get_active_locale()
+        _lang_block = lang_block(_locale, ["hot_topics", "narrative_direction", "content", "reasoning"])
 
         # List representative entity names for each type
         type_examples = {}
@@ -716,7 +727,7 @@ Field descriptions:
         # Use configured context truncation length
         context_truncated = context[:self.EVENT_CONFIG_CONTEXT_LENGTH]
 
-        prompt = f"""Based on the following simulation requirements, generate event configuration.
+        prompt = f"""{_lang_block}Based on the following simulation requirements, generate event configuration.
 
 Simulation requirement: {simulation_requirement}
 
@@ -875,7 +886,7 @@ Return JSON format (no markdown):
         count_word = {1: "ONE", 2: "TWO", 3: "THREE", 4: "FOUR", 5: "FIVE"}[num_markets]
 
         from ..prompts import get_prompt
-        from ..utils.i18n import get_active_locale
+        from ..utils.i18n import get_active_locale, lang_block
         locale = get_active_locale()
         if singular:
             count_rule = get_prompt(
@@ -895,13 +906,15 @@ Return JSON format (no markdown):
             + get_prompt("simulation_config.market_system_outro", locale)
         )
 
+        _lang_block = lang_block(locale, ["question", "outcome_a", "outcome_b", "reasoning"])
+
         intent_line = (
             "Generate ONE prediction market that best captures the central question of this simulation:"
             if singular else
             f"Generate {count_word} ({num_markets}) DISTINCT prediction markets covering different angles of this simulation:"
         )
 
-        user_prompt = f"""Simulation: {simulation_requirement}
+        user_prompt = f"""{_lang_block}Simulation: {simulation_requirement}
 
 Hot topics: {', '.join(hot_topics) if hot_topics else 'N/A'}
 
